@@ -15,6 +15,9 @@ use kvproto::tikvpb_grpc::*;
 use tokio_threadpool::{Builder as ThreadPoolBuilder, ThreadPool};
 use tokio_timer::timer::Handle;
 
+use crate::storage::lock_manager::deadlock::Service as DeadlockService;
+use kvproto::deadlock_grpc::create_deadlock;
+
 use crate::coprocessor::Endpoint;
 use crate::import::ImportSSTService;
 use crate::raftstore::store::SnapManager;
@@ -34,7 +37,6 @@ use super::{Config, Result};
 
 const LOAD_STATISTICS_SLOTS: usize = 4;
 const LOAD_STATISTICS_INTERVAL: Duration = Duration::from_millis(100);
-const MAX_GRPC_RECV_MSG_LEN: i32 = 10 * 1024 * 1024;
 pub const GRPC_THREAD_PREFIX: &str = "grpc-server";
 pub const STATS_THREAD_PREFIX: &str = "transport-stats";
 
@@ -74,6 +76,7 @@ impl<T: RaftStoreRouter, S: StoreAddrResolver + 'static> Server<T, S> {
         snap_mgr: SnapManager,
         debug_engines: Option<Engines>,
         import_service: Option<ImportSSTService<T>>,
+        deadlock_service: Option<DeadlockService>,
     ) -> Result<Self> {
         // A helper thread (or pool) for transport layer.
         let stats_pool = ThreadPoolBuilder::new()
@@ -99,12 +102,11 @@ impl<T: RaftStoreRouter, S: StoreAddrResolver + 'static> Server<T, S> {
         );
 
         let mut addr = SocketAddr::from_str(&cfg.addr)?;
-        info!("listening on addr"; "addr" => addr);
         let ip = format!("{}", addr.ip());
         let channel_args = ChannelBuilder::new(Arc::clone(&env))
             .stream_initial_window_size(cfg.grpc_stream_initial_window_size.0 as i32)
             .max_concurrent_stream(cfg.grpc_concurrent_stream)
-            .max_receive_message_len(MAX_GRPC_RECV_MSG_LEN)
+            .max_receive_message_len(-1)
             .max_send_message_len(-1)
             .http2_max_ping_strikes(i32::MAX) // For pings without data from clients.
             .build_args();
@@ -120,6 +122,9 @@ impl<T: RaftStoreRouter, S: StoreAddrResolver + 'static> Server<T, S> {
             if let Some(service) = import_service {
                 sb = sb.register_service(create_import_sst(service));
             }
+            if let Some(service) = deadlock_service {
+                sb = sb.register_service(create_deadlock(service));
+            }
             // When port is 0, it has to be binded now to get a valid address, which
             // is then reported to PD before the server is up. 0 is usually used in tests.
             if addr.port() == 0 {
@@ -131,6 +136,8 @@ impl<T: RaftStoreRouter, S: StoreAddrResolver + 'static> Server<T, S> {
                 Either::Left(sb)
             }
         };
+
+        info!("listening on addr"; "addr" => addr);
 
         let raft_client = Arc::new(RwLock::new(RaftClient::new(
             Arc::clone(&env),
@@ -240,9 +247,9 @@ mod tests {
     use crate::raftstore::store::transport::Transport;
     use crate::raftstore::store::*;
     use crate::raftstore::Result as RaftStoreResult;
-    use crate::server::readpool;
     use crate::storage::TestStorageBuilder;
 
+    use crate::coprocessor::readpool_impl;
     use kvproto::raft_cmdpb::RaftCmdRequest;
     use kvproto::raft_serverpb::RaftMessage;
     use tikv_util::security::SecurityConfig;
@@ -325,8 +332,8 @@ mod tests {
         let cfg = Arc::new(cfg);
         let security_mgr = Arc::new(SecurityManager::new(&SecurityConfig::default()).unwrap());
 
-        let cop_read_pool = readpool::Builder::build_for_test();
-        let cop = coprocessor::Endpoint::new(&cfg, storage.get_engine(), cop_read_pool);
+        let cop_read_pool = readpool_impl::build_read_pool_for_test(storage.get_engine());
+        let cop = coprocessor::Endpoint::new(&cfg, cop_read_pool);
 
         let addr = Arc::new(Mutex::new(None));
         let mut server = Server::new(
@@ -340,6 +347,7 @@ mod tests {
                 addr: Arc::clone(&addr),
             },
             SnapManager::new("", None),
+            None,
             None,
             None,
         )

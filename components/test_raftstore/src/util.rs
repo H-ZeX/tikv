@@ -7,7 +7,11 @@ use std::{thread, u64};
 
 use protobuf;
 use rand::RngCore;
+<<<<<<< HEAD
 use tempdir::TempDir;
+=======
+use tempfile::{Builder, TempDir};
+>>>>>>> d98bc74352cd7cc6e413c209cb7a86102e726afd
 
 use kvproto::metapb::{self, RegionEpoch};
 use kvproto::pdpb::{ChangePeer, Merge, RegionHeartbeatResponse, SplitRegion, TransferLeader};
@@ -44,7 +48,7 @@ pub fn must_get(engine: &Arc<DB>, cf: &str, key: &[u8], value: Option<&[u8]>) {
         }
         thread::sleep(Duration::from_millis(20));
     }
-    debug!("last try to get {}", escape(key));
+    debug!("last try to get {}", hex::encode_upper(key));
     let res = engine.get_value_cf(cf, &keys::data_key(key)).unwrap();
     if value.is_none() && res.is_none()
         || value.is_some() && res.is_some() && value.unwrap() == &*res.unwrap()
@@ -52,9 +56,9 @@ pub fn must_get(engine: &Arc<DB>, cf: &str, key: &[u8], value: Option<&[u8]>) {
         return;
     }
     panic!(
-        "can't get value {:?} for key {:?}",
+        "can't get value {:?} for key {}",
         value.map(escape),
-        escape(key)
+        hex::encode_upper(key)
     )
 }
 
@@ -226,6 +230,12 @@ pub fn new_get_cmd(key: &[u8]) -> Request {
     cmd
 }
 
+pub fn new_read_index_cmd() -> Request {
+    let mut cmd = Request::new();
+    cmd.set_cmd_type(CmdType::ReadIndex);
+    cmd
+}
+
 pub fn new_get_cf_cmd(cf: &str, key: &[u8]) -> Request {
     let mut cmd = Request::new();
     cmd.set_cmd_type(CmdType::Get);
@@ -376,13 +386,11 @@ pub fn make_cb(cmd: &RaftCmdRequest) -> (Callback, mpsc::Receiver<RaftCmdRespons
     is_write = cmd.has_admin_request();
     for req in cmd.get_requests() {
         match req.get_cmd_type() {
-            CmdType::Get | CmdType::Snap => is_read = true,
+            CmdType::Get | CmdType::Snap | CmdType::ReadIndex => is_read = true,
             CmdType::Put | CmdType::Delete | CmdType::DeleteRange | CmdType::IngestSST => {
                 is_write = true
             }
-            CmdType::Invalid | CmdType::Prewrite | CmdType::ReadIndex => {
-                panic!("Invalid RaftCmdRequest: {:?}", cmd)
-            }
+            CmdType::Invalid | CmdType::Prewrite => panic!("Invalid RaftCmdRequest: {:?}", cmd),
         }
     }
     assert!(is_read ^ is_write, "Invalid RaftCmdRequest: {:?}", cmd);
@@ -421,6 +429,23 @@ pub fn read_on_peer<T: Simulator>(
     cluster.call_command(request, timeout)
 }
 
+pub fn read_index_on_peer<T: Simulator>(
+    cluster: &mut Cluster<T>,
+    peer: metapb::Peer,
+    region: metapb::Region,
+    read_quorum: bool,
+    timeout: Duration,
+) -> Result<RaftCmdResponse> {
+    let mut request = new_request(
+        region.get_id(),
+        region.get_region_epoch().clone(),
+        vec![new_read_index_cmd()],
+        read_quorum,
+    );
+    request.mut_header().set_peer(peer);
+    cluster.call_command(request, timeout)
+}
+
 pub fn must_get_value(resp: &RaftCmdResponse) -> Vec<u8> {
     if resp.get_header().has_error() {
         panic!("failed to read {:?}", resp);
@@ -443,7 +468,7 @@ pub fn must_read_on_peer<T: Simulator>(
         Ok(ref resp) if value == must_get_value(resp).as_slice() => (),
         other => panic!(
             "read key {}, expect value {:?}, got {:?}",
-            escape(key),
+            hex::encode_upper(key),
             value,
             other
         ),
@@ -462,7 +487,7 @@ pub fn must_error_read_on_peer<T: Simulator>(
             let value = resp.mut_responses()[0].mut_get().take_value();
             panic!(
                 "key {}, expect error but got {}",
-                escape(key),
+                hex::encode_upper(key),
                 escape(&value)
             );
         }
@@ -483,7 +508,7 @@ pub fn create_test_engine(
     let engines = match engines {
         Some(e) => e,
         None => {
-            path = Some(TempDir::new("test_cluster").unwrap());
+            path = Some(Builder::new().prefix("test_cluster").tempdir().unwrap());
             let mut kv_db_opt = cfg.rocksdb.build_opt();
             let router = Mutex::new(router);
             let cmpacted_handler = Box::new(move |event| {
@@ -518,6 +543,13 @@ pub fn create_test_engine(
     (engines, path)
 }
 
+pub fn configure_for_request_snapshot<T: Simulator>(cluster: &mut Cluster<T>) {
+    // We don't want to generate snapshots due to compact log.
+    cluster.cfg.raft_store.raft_log_gc_threshold = 1000;
+    cluster.cfg.raft_store.raft_log_gc_count_limit = 1000;
+    cluster.cfg.raft_store.raft_log_gc_size_limit = ReadableSize::mb(20);
+}
+
 pub fn configure_for_snapshot<T: Simulator>(cluster: &mut Cluster<T>) {
     // Truncate the log quickly so that we can force sending snapshot.
     cluster.cfg.raft_store.raft_log_gc_tick_interval = ReadableDuration::millis(20);
@@ -533,6 +565,9 @@ pub fn configure_for_merge<T: Simulator>(cluster: &mut Cluster<T>) {
     cluster.cfg.raft_store.raft_log_gc_size_limit = ReadableSize::mb(20);
     // Make merge check resume quickly.
     cluster.cfg.raft_store.merge_check_tick_interval = ReadableDuration::millis(100);
+    // When isolated, follower relies on stale check tick to detect failure leader,
+    // choose a smaller number to make it recover faster.
+    cluster.cfg.raft_store.peer_stale_state_check_interval = ReadableDuration::millis(500);
 }
 
 pub fn configure_for_transfer_leader<T: Simulator>(cluster: &mut Cluster<T>) {

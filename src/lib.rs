@@ -23,6 +23,7 @@
 #![feature(proc_macro_hygiene)]
 #![feature(duration_float)]
 #![feature(specialization)]
+#![feature(const_fn)]
 
 #[macro_use]
 extern crate bitflags;
@@ -63,6 +64,8 @@ extern crate more_asserts;
 extern crate vlog;
 #[macro_use]
 extern crate tikv_util;
+#[macro_use]
+extern crate match_template;
 #[cfg(test)]
 extern crate test;
 

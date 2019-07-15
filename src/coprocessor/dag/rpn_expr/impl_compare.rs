@@ -2,59 +2,21 @@
 
 use std::cmp::Ordering;
 
-use cop_codegen::RpnFunction;
+use cop_codegen::rpn_fn;
 
-use super::types::RpnFnCallPayload;
 use crate::coprocessor::codec::data_type::*;
-use crate::coprocessor::dag::expr::EvalContext;
-use crate::coprocessor::{codec, Error, Result};
+use crate::coprocessor::Result;
 
-#[derive(RpnFunction)]
-#[rpn_function(args = 2)]
-pub struct RpnFnCompare<C: Comparer> {
-    _phantom: std::marker::PhantomData<C>,
+#[rpn_fn]
+#[inline]
+pub fn compare<C: Comparer>(lhs: &Option<C::T>, rhs: &Option<C::T>) -> Result<Option<i64>>
+where
+    C: Comparer,
+{
+    C::compare(lhs, rhs)
 }
 
-impl<C: Comparer> RpnFnCompare<C> {
-    #[inline]
-    pub fn new() -> Self {
-        Self {
-            _phantom: std::marker::PhantomData,
-        }
-    }
-
-    #[inline]
-    fn call(
-        _ctx: &mut EvalContext,
-        _payload: RpnFnCallPayload<'_>,
-        lhs: &Option<C::T>,
-        rhs: &Option<C::T>,
-    ) -> Result<Option<i64>> {
-        C::compare(lhs, rhs)
-    }
-}
-
-impl<C: Comparer> std::fmt::Debug for RpnFnCompare<C> {
-    #[inline]
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "RpnFnCompare")
-    }
-}
-
-// See rust-lang/rust#26925 for why the followings are implemented manually. =====
-
-impl<C: Comparer> Copy for RpnFnCompare<C> {}
-
-impl<C: Comparer> Clone for RpnFnCompare<C> {
-    #[inline]
-    fn clone(&self) -> Self {
-        Self::new()
-    }
-}
-
-// ======
-
-pub trait Comparer: 'static + Send + Sync {
+pub trait Comparer {
     type T: Evaluable;
 
     fn compare(lhs: &Option<Self::T>, rhs: &Option<Self::T>) -> Result<Option<i64>>;
@@ -75,34 +37,6 @@ impl<T: Evaluable + Ord, F: CmpOp> Comparer for BasicComparer<T, F> {
             (None, _) | (_, None) => F::compare_partial_null(),
             (Some(lhs), Some(rhs)) => Some(F::compare_order(lhs.cmp(rhs)) as i64),
         })
-    }
-}
-
-pub struct RealComparer<F: CmpOp> {
-    _phantom_f: std::marker::PhantomData<F>,
-}
-
-impl<F: CmpOp> Comparer for RealComparer<F> {
-    type T = Real;
-
-    #[inline]
-    fn compare(lhs: &Option<Real>, rhs: &Option<Real>) -> Result<Option<i64>> {
-        match (lhs, rhs) {
-            (None, None) => Ok(F::compare_null()),
-            (None, _) | (_, None) => Ok(F::compare_partial_null()),
-            (Some(lhs), Some(rhs)) => lhs
-                .partial_cmp(rhs)
-                // FIXME: It is weird to be a codec error.
-                // FIXME: This should never happen because special numbers like NaN and Inf are not
-                // allowed at all.
-                .ok_or_else(|| {
-                    Error::from(codec::Error::InvalidDataType(format!(
-                        "{} and {} can't be compared",
-                        lhs, rhs
-                    )))
-                })
-                .map(|v| Some(F::compare_order(v) as i64)),
-        }
     }
 }
 
@@ -175,7 +109,7 @@ impl<F: CmpOp> Comparer for IntUintComparer<F> {
     }
 }
 
-pub trait CmpOp: 'static + Send + Sync {
+pub trait CmpOp {
     #[inline]
     fn compare_null() -> Option<i64> {
         None
@@ -262,6 +196,43 @@ impl CmpOp for CmpOpNullEQ {
     }
 }
 
+#[rpn_fn(varg)]
+#[inline]
+pub fn coalesce<T: Evaluable>(args: &[&Option<T>]) -> Result<Option<T>> {
+    for arg in args {
+        if arg.is_some() {
+            return Ok((*arg).clone());
+        }
+    }
+    Ok(None)
+}
+
+#[rpn_fn(varg, min_args = 1)]
+#[inline]
+pub fn compare_in<T: Evaluable + Eq>(args: &[&Option<T>]) -> Result<Option<Int>> {
+    assert!(!args.is_empty());
+    let base_val = args[0];
+    match base_val {
+        None => Ok(None),
+        Some(base_val) => {
+            let mut default_ret = Some(0);
+            for arg in &args[1..] {
+                match arg {
+                    None => {
+                        default_ret = None;
+                    }
+                    Some(v) => {
+                        if v == base_val {
+                            return Ok(Some(1));
+                        }
+                    }
+                }
+            }
+            Ok(default_ret)
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -270,7 +241,7 @@ mod tests {
     use cop_datatype::{FieldTypeFlag, FieldTypeTp};
     use tipb::expression::ScalarFuncSig;
 
-    use crate::coprocessor::dag::rpn_expr::types::test_util::RpnFnScalarEvaluator;
+    use crate::coprocessor::dag::rpn_expr::test_util::RpnFnScalarEvaluator;
 
     #[derive(Clone, Copy, PartialEq, Eq)]
     enum TestCaseCmpOp {
@@ -285,71 +256,211 @@ mod tests {
 
     #[allow(clippy::type_complexity)]
     fn generate_numeric_compare_cases(
-    ) -> Vec<(Option<f64>, Option<f64>, TestCaseCmpOp, Option<i64>)> {
+    ) -> Vec<(Option<Real>, Option<Real>, TestCaseCmpOp, Option<i64>)> {
         vec![
             (None, None, TestCaseCmpOp::GT, None),
-            (Some(3.5), None, TestCaseCmpOp::GT, None),
-            (Some(-2.1), None, TestCaseCmpOp::GT, None),
-            (None, Some(3.5), TestCaseCmpOp::GT, None),
-            (None, Some(-2.1), TestCaseCmpOp::GT, None),
-            (Some(3.5), Some(-2.1), TestCaseCmpOp::GT, Some(1)),
-            (Some(-2.1), Some(3.5), TestCaseCmpOp::GT, Some(0)),
-            (Some(3.5), Some(3.5), TestCaseCmpOp::GT, Some(0)),
-            (Some(-2.1), Some(-2.1), TestCaseCmpOp::GT, Some(0)),
+            (Real::new(3.5).ok(), None, TestCaseCmpOp::GT, None),
+            (Real::new(-2.1).ok(), None, TestCaseCmpOp::GT, None),
+            (None, Real::new(3.5).ok(), TestCaseCmpOp::GT, None),
+            (None, Real::new(-2.1).ok(), TestCaseCmpOp::GT, None),
+            (
+                Real::new(3.5).ok(),
+                Real::new(-2.1).ok(),
+                TestCaseCmpOp::GT,
+                Some(1),
+            ),
+            (
+                Real::new(-2.1).ok(),
+                Real::new(3.5).ok(),
+                TestCaseCmpOp::GT,
+                Some(0),
+            ),
+            (
+                Real::new(3.5).ok(),
+                Real::new(3.5).ok(),
+                TestCaseCmpOp::GT,
+                Some(0),
+            ),
+            (
+                Real::new(-2.1).ok(),
+                Real::new(-2.1).ok(),
+                TestCaseCmpOp::GT,
+                Some(0),
+            ),
             (None, None, TestCaseCmpOp::GE, None),
-            (Some(3.5), None, TestCaseCmpOp::GE, None),
-            (Some(-2.1), None, TestCaseCmpOp::GE, None),
-            (None, Some(3.5), TestCaseCmpOp::GE, None),
-            (None, Some(-2.1), TestCaseCmpOp::GE, None),
-            (Some(3.5), Some(-2.1), TestCaseCmpOp::GE, Some(1)),
-            (Some(-2.1), Some(3.5), TestCaseCmpOp::GE, Some(0)),
-            (Some(3.5), Some(3.5), TestCaseCmpOp::GE, Some(1)),
-            (Some(-2.1), Some(-2.1), TestCaseCmpOp::GE, Some(1)),
+            (Real::new(3.5).ok(), None, TestCaseCmpOp::GE, None),
+            (Real::new(-2.1).ok(), None, TestCaseCmpOp::GE, None),
+            (None, Real::new(3.5).ok(), TestCaseCmpOp::GE, None),
+            (None, Real::new(-2.1).ok(), TestCaseCmpOp::GE, None),
+            (
+                Real::new(3.5).ok(),
+                Real::new(-2.1).ok(),
+                TestCaseCmpOp::GE,
+                Some(1),
+            ),
+            (
+                Real::new(-2.1).ok(),
+                Real::new(3.5).ok(),
+                TestCaseCmpOp::GE,
+                Some(0),
+            ),
+            (
+                Real::new(3.5).ok(),
+                Real::new(3.5).ok(),
+                TestCaseCmpOp::GE,
+                Some(1),
+            ),
+            (
+                Real::new(-2.1).ok(),
+                Real::new(-2.1).ok(),
+                TestCaseCmpOp::GE,
+                Some(1),
+            ),
             (None, None, TestCaseCmpOp::LT, None),
-            (Some(3.5), None, TestCaseCmpOp::LT, None),
-            (Some(-2.1), None, TestCaseCmpOp::LT, None),
-            (None, Some(3.5), TestCaseCmpOp::LT, None),
-            (None, Some(-2.1), TestCaseCmpOp::LT, None),
-            (Some(3.5), Some(-2.1), TestCaseCmpOp::LT, Some(0)),
-            (Some(-2.1), Some(3.5), TestCaseCmpOp::LT, Some(1)),
-            (Some(3.5), Some(3.5), TestCaseCmpOp::LT, Some(0)),
-            (Some(-2.1), Some(-2.1), TestCaseCmpOp::LT, Some(0)),
+            (Real::new(3.5).ok(), None, TestCaseCmpOp::LT, None),
+            (Real::new(-2.1).ok(), None, TestCaseCmpOp::LT, None),
+            (None, Real::new(3.5).ok(), TestCaseCmpOp::LT, None),
+            (None, Real::new(-2.1).ok(), TestCaseCmpOp::LT, None),
+            (
+                Real::new(3.5).ok(),
+                Real::new(-2.1).ok(),
+                TestCaseCmpOp::LT,
+                Some(0),
+            ),
+            (
+                Real::new(-2.1).ok(),
+                Real::new(3.5).ok(),
+                TestCaseCmpOp::LT,
+                Some(1),
+            ),
+            (
+                Real::new(3.5).ok(),
+                Real::new(3.5).ok(),
+                TestCaseCmpOp::LT,
+                Some(0),
+            ),
+            (
+                Real::new(-2.1).ok(),
+                Real::new(-2.1).ok(),
+                TestCaseCmpOp::LT,
+                Some(0),
+            ),
             (None, None, TestCaseCmpOp::LE, None),
-            (Some(3.5), None, TestCaseCmpOp::LE, None),
-            (Some(-2.1), None, TestCaseCmpOp::LE, None),
-            (None, Some(3.5), TestCaseCmpOp::LE, None),
-            (None, Some(-2.1), TestCaseCmpOp::LE, None),
-            (Some(3.5), Some(-2.1), TestCaseCmpOp::LE, Some(0)),
-            (Some(-2.1), Some(3.5), TestCaseCmpOp::LE, Some(1)),
-            (Some(3.5), Some(3.5), TestCaseCmpOp::LE, Some(1)),
-            (Some(-2.1), Some(-2.1), TestCaseCmpOp::LE, Some(1)),
+            (Real::new(3.5).ok(), None, TestCaseCmpOp::LE, None),
+            (Real::new(-2.1).ok(), None, TestCaseCmpOp::LE, None),
+            (None, Real::new(3.5).ok(), TestCaseCmpOp::LE, None),
+            (None, Real::new(-2.1).ok(), TestCaseCmpOp::LE, None),
+            (
+                Real::new(3.5).ok(),
+                Real::new(-2.1).ok(),
+                TestCaseCmpOp::LE,
+                Some(0),
+            ),
+            (
+                Real::new(-2.1).ok(),
+                Real::new(3.5).ok(),
+                TestCaseCmpOp::LE,
+                Some(1),
+            ),
+            (
+                Real::new(3.5).ok(),
+                Real::new(3.5).ok(),
+                TestCaseCmpOp::LE,
+                Some(1),
+            ),
+            (
+                Real::new(-2.1).ok(),
+                Real::new(-2.1).ok(),
+                TestCaseCmpOp::LE,
+                Some(1),
+            ),
             (None, None, TestCaseCmpOp::EQ, None),
-            (Some(3.5), None, TestCaseCmpOp::EQ, None),
-            (Some(-2.1), None, TestCaseCmpOp::EQ, None),
-            (None, Some(3.5), TestCaseCmpOp::EQ, None),
-            (None, Some(-2.1), TestCaseCmpOp::EQ, None),
-            (Some(3.5), Some(-2.1), TestCaseCmpOp::EQ, Some(0)),
-            (Some(-2.1), Some(3.5), TestCaseCmpOp::EQ, Some(0)),
-            (Some(3.5), Some(3.5), TestCaseCmpOp::EQ, Some(1)),
-            (Some(-2.1), Some(-2.1), TestCaseCmpOp::EQ, Some(1)),
+            (Real::new(3.5).ok(), None, TestCaseCmpOp::EQ, None),
+            (Real::new(-2.1).ok(), None, TestCaseCmpOp::EQ, None),
+            (None, Real::new(3.5).ok(), TestCaseCmpOp::EQ, None),
+            (None, Real::new(-2.1).ok(), TestCaseCmpOp::EQ, None),
+            (
+                Real::new(3.5).ok(),
+                Real::new(-2.1).ok(),
+                TestCaseCmpOp::EQ,
+                Some(0),
+            ),
+            (
+                Real::new(-2.1).ok(),
+                Real::new(3.5).ok(),
+                TestCaseCmpOp::EQ,
+                Some(0),
+            ),
+            (
+                Real::new(3.5).ok(),
+                Real::new(3.5).ok(),
+                TestCaseCmpOp::EQ,
+                Some(1),
+            ),
+            (
+                Real::new(-2.1).ok(),
+                Real::new(-2.1).ok(),
+                TestCaseCmpOp::EQ,
+                Some(1),
+            ),
             (None, None, TestCaseCmpOp::NE, None),
-            (Some(3.5), None, TestCaseCmpOp::NE, None),
-            (Some(-2.1), None, TestCaseCmpOp::NE, None),
-            (None, Some(3.5), TestCaseCmpOp::NE, None),
-            (None, Some(-2.1), TestCaseCmpOp::NE, None),
-            (Some(3.5), Some(-2.1), TestCaseCmpOp::NE, Some(1)),
-            (Some(-2.1), Some(3.5), TestCaseCmpOp::NE, Some(1)),
-            (Some(3.5), Some(3.5), TestCaseCmpOp::NE, Some(0)),
-            (Some(-2.1), Some(-2.1), TestCaseCmpOp::NE, Some(0)),
+            (Real::new(3.5).ok(), None, TestCaseCmpOp::NE, None),
+            (Real::new(-2.1).ok(), None, TestCaseCmpOp::NE, None),
+            (None, Real::new(3.5).ok(), TestCaseCmpOp::NE, None),
+            (None, Real::new(-2.1).ok(), TestCaseCmpOp::NE, None),
+            (
+                Real::new(3.5).ok(),
+                Real::new(-2.1).ok(),
+                TestCaseCmpOp::NE,
+                Some(1),
+            ),
+            (
+                Real::new(-2.1).ok(),
+                Real::new(3.5).ok(),
+                TestCaseCmpOp::NE,
+                Some(1),
+            ),
+            (
+                Real::new(3.5).ok(),
+                Real::new(3.5).ok(),
+                TestCaseCmpOp::NE,
+                Some(0),
+            ),
+            (
+                Real::new(-2.1).ok(),
+                Real::new(-2.1).ok(),
+                TestCaseCmpOp::NE,
+                Some(0),
+            ),
             (None, None, TestCaseCmpOp::NullEQ, Some(1)),
-            (Some(3.5), None, TestCaseCmpOp::NullEQ, Some(0)),
-            (Some(-2.1), None, TestCaseCmpOp::NullEQ, Some(0)),
-            (None, Some(3.5), TestCaseCmpOp::NullEQ, Some(0)),
-            (None, Some(-2.1), TestCaseCmpOp::NullEQ, Some(0)),
-            (Some(3.5), Some(-2.1), TestCaseCmpOp::NullEQ, Some(0)),
-            (Some(-2.1), Some(3.5), TestCaseCmpOp::NullEQ, Some(0)),
-            (Some(3.5), Some(3.5), TestCaseCmpOp::NullEQ, Some(1)),
-            (Some(-2.1), Some(-2.1), TestCaseCmpOp::NullEQ, Some(1)),
+            (Real::new(3.5).ok(), None, TestCaseCmpOp::NullEQ, Some(0)),
+            (Real::new(-2.1).ok(), None, TestCaseCmpOp::NullEQ, Some(0)),
+            (None, Real::new(3.5).ok(), TestCaseCmpOp::NullEQ, Some(0)),
+            (None, Real::new(-2.1).ok(), TestCaseCmpOp::NullEQ, Some(0)),
+            (
+                Real::new(3.5).ok(),
+                Real::new(-2.1).ok(),
+                TestCaseCmpOp::NullEQ,
+                Some(0),
+            ),
+            (
+                Real::new(-2.1).ok(),
+                Real::new(3.5).ok(),
+                TestCaseCmpOp::NullEQ,
+                Some(0),
+            ),
+            (
+                Real::new(3.5).ok(),
+                Real::new(3.5).ok(),
+                TestCaseCmpOp::NullEQ,
+                Some(1),
+            ),
+            (
+                Real::new(-2.1).ok(),
+                Real::new(-2.1).ok(),
+                TestCaseCmpOp::NullEQ,
+                Some(1),
+            ),
         ]
     }
 
@@ -376,10 +487,8 @@ mod tests {
 
     #[test]
     fn test_compare_duration() {
-        fn map_double_to_duration(v: f64) -> Duration {
-            let d = std::time::Duration::from_millis((v.abs() * 1000.0) as u64);
-            let is_neg = v < 0.0;
-            Duration::new(d, is_neg, 4).unwrap()
+        fn map_double_to_duration(v: Real) -> Duration {
+            Duration::from_millis((v.into_inner() * 1000.0) as i64, 4).unwrap()
         }
 
         for (arg0, arg1, cmp_op, expect_output) in generate_numeric_compare_cases() {
@@ -414,8 +523,8 @@ mod tests {
                 TestCaseCmpOp::NullEQ => ScalarFuncSig::NullEQDecimal,
             };
             let output = RpnFnScalarEvaluator::new()
-                .push_param(arg0.map(|v| Decimal::from_f64(v).unwrap()))
-                .push_param(arg1.map(|v| Decimal::from_f64(v).unwrap()))
+                .push_param(arg0.map(|v| Decimal::from_f64(v.into_inner()).unwrap()))
+                .push_param(arg1.map(|v| Decimal::from_f64(v.into_inner()).unwrap()))
                 .evaluate(sig)
                 .unwrap();
             assert_eq!(output, expect_output, "{:?}, {:?}, {:?}", arg0, arg1, sig);
@@ -435,8 +544,8 @@ mod tests {
                 TestCaseCmpOp::NullEQ => ScalarFuncSig::NullEQInt,
             };
             let output = RpnFnScalarEvaluator::new()
-                .push_param(arg0.map(|v| v as i64))
-                .push_param(arg1.map(|v| v as i64))
+                .push_param(arg0.map(|v| v.into_inner() as i64))
+                .push_param(arg1.map(|v| v.into_inner() as i64))
                 .evaluate(sig)
                 .unwrap();
             assert_eq!(output, expect_output, "{:?}, {:?}, {:?}", arg0, arg1, sig);
@@ -530,6 +639,43 @@ mod tests {
                     assert_eq!(output, Some(0));
                 }
             }
+        }
+    }
+
+    #[test]
+    fn test_coalesce() {
+        let cases = vec![
+            (vec![], None),
+            (vec![None], None),
+            (vec![None, None], None),
+            (vec![None, None, None], None),
+            (vec![None, Some(0), None], Some(0)),
+        ];
+        for (args, expected) in cases {
+            let output = RpnFnScalarEvaluator::new()
+                .push_params(args)
+                .evaluate(ScalarFuncSig::CoalesceInt)
+                .unwrap();
+            assert_eq!(output, expected);
+        }
+    }
+
+    #[test]
+    fn test_in() {
+        let cases = vec![
+            (vec![Some(1)], Some(0)),
+            (vec![Some(1), Some(2)], Some(0)),
+            (vec![Some(1), Some(2), Some(1)], Some(1)),
+            (vec![Some(1), Some(2), None], None),
+            (vec![Some(1), Some(2), None, Some(1)], Some(1)),
+            (vec![None, Some(2), Some(1)], None),
+        ];
+        for (args, expected) in cases {
+            let output = RpnFnScalarEvaluator::new()
+                .push_params(args)
+                .evaluate(ScalarFuncSig::InInt)
+                .unwrap();
+            assert_eq!(output, expected);
         }
     }
 }

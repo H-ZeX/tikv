@@ -126,6 +126,7 @@ impl ScalarFunc {
             | ScalarFuncSig::SubDatetimeAndDuration
             | ScalarFuncSig::SubDatetimeAndString
             | ScalarFuncSig::SubDurationAndDuration
+            | ScalarFuncSig::SubDurationAndString
             | ScalarFuncSig::PeriodAdd
             | ScalarFuncSig::PeriodDiff
             | ScalarFuncSig::Strcmp
@@ -370,7 +371,9 @@ impl ScalarFunc {
 
             ScalarFuncSig::AddTimeDateTimeNull
             | ScalarFuncSig::AddTimeDurationNull
+            | ScalarFuncSig::AddTimeStringNull
             | ScalarFuncSig::SubTimeDateTimeNull
+            | ScalarFuncSig::SubTimeDurationNull
             | ScalarFuncSig::PI => (0, 0),
 
             // unimplemented signature
@@ -385,7 +388,6 @@ impl ScalarFunc {
             | ScalarFuncSig::AddDateStringString
             | ScalarFuncSig::AddStringAndDuration
             | ScalarFuncSig::AddStringAndString
-            | ScalarFuncSig::AddTimeStringNull
             | ScalarFuncSig::AesDecrypt
             | ScalarFuncSig::AesEncrypt
             | ScalarFuncSig::Char
@@ -455,10 +457,8 @@ impl ScalarFunc {
             | ScalarFuncSig::SubDateStringDecimal
             | ScalarFuncSig::SubDateStringInt
             | ScalarFuncSig::SubDateStringString
-            | ScalarFuncSig::SubDurationAndString
             | ScalarFuncSig::SubStringAndDuration
             | ScalarFuncSig::SubStringAndString
-            | ScalarFuncSig::SubTimeDurationNull
             | ScalarFuncSig::SubTimeStringNull
             | ScalarFuncSig::SysDateWithFsp
             | ScalarFuncSig::SysDateWithoutFsp
@@ -596,7 +596,7 @@ macro_rules! dispatch_call {
                 &'b self,
                 ctx: &mut EvalContext,
                 row: &'a [Datum]
-            ) -> Result<Option<Cow<'a, Duration>>> {
+            ) -> Result<Option<Duration>> {
                 match self.sig {
                     $(ScalarFuncSig::$u_sig => self.$u_func(ctx, row, $($u_arg),*),)*
                     _ => Err(Error::UnknownSignature(self.sig))
@@ -993,6 +993,7 @@ dispatch_call! {
         RpadBinary => rpad_binary,
 
         StringAnyValue => string_any_value,
+        AddTimeStringNull => add_time_string_null,
     }
     TIME_CALLS {
         CastIntAsTime => cast_int_as_time,
@@ -1042,6 +1043,8 @@ dispatch_call! {
         AddTimeDurationNull => add_time_duration_null,
 
         SubDurationAndDuration => sub_duration_and_duration,
+        SubDurationAndString => sub_duration_and_string,
+        SubTimeDurationNull => sub_time_duration_null,
     }
     JSON_CALLS {
         CastIntAsJson => cast_int_as_json,
@@ -1189,6 +1192,7 @@ mod tests {
                     ScalarFuncSig::SubDatetimeAndDuration,
                     ScalarFuncSig::SubDatetimeAndString,
                     ScalarFuncSig::SubDurationAndDuration,
+                    ScalarFuncSig::SubDurationAndString,
                     ScalarFuncSig::PeriodAdd,
                     ScalarFuncSig::PeriodDiff,
                     ScalarFuncSig::Locate2Args,
@@ -1454,7 +1458,9 @@ mod tests {
                 vec![
                     ScalarFuncSig::AddTimeDateTimeNull,
                     ScalarFuncSig::AddTimeDurationNull,
+                    ScalarFuncSig::AddTimeStringNull,
                     ScalarFuncSig::SubTimeDateTimeNull,
+                    ScalarFuncSig::SubTimeDurationNull,
                     ScalarFuncSig::PI,
                 ],
                 0,
@@ -1491,7 +1497,6 @@ mod tests {
             ScalarFuncSig::AddDateStringString,
             ScalarFuncSig::AddStringAndDuration,
             ScalarFuncSig::AddStringAndString,
-            ScalarFuncSig::AddTimeStringNull,
             ScalarFuncSig::AesDecrypt,
             ScalarFuncSig::AesEncrypt,
             ScalarFuncSig::Char,
@@ -1561,10 +1566,8 @@ mod tests {
             ScalarFuncSig::SubDateStringDecimal,
             ScalarFuncSig::SubDateStringInt,
             ScalarFuncSig::SubDateStringString,
-            ScalarFuncSig::SubDurationAndString,
             ScalarFuncSig::SubStringAndDuration,
             ScalarFuncSig::SubStringAndString,
-            ScalarFuncSig::SubTimeDurationNull,
             ScalarFuncSig::SubTimeStringNull,
             ScalarFuncSig::SysDateWithFsp,
             ScalarFuncSig::SysDateWithoutFsp,

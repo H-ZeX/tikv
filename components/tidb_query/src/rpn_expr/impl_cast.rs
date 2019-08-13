@@ -134,7 +134,7 @@ fn in_union(implicit_args: &[ScalarValue]) -> bool {
 }
 
 fn get_type_name<T>() -> String {
-    format!("{}", unsafe { std::intrinsics::type_name::<T>() })
+    unsafe { std::intrinsics::type_name::<T>() }.to_string()
 }
 
 /// The unsigned int implementation for push down signature `CastIntAsDecimal`.

@@ -11,6 +11,7 @@
 #![feature(specialization)]
 #![feature(const_fn)]
 #![feature(test)]
+#![feature(core_intrinsics)]
 
 #[macro_use]
 extern crate lazy_static;
@@ -49,4 +50,5 @@ pub mod metrics;
 pub mod rpn_expr;
 pub mod storage;
 pub mod util;
+
 pub use self::error::{Error, Result};

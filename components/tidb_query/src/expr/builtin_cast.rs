@@ -7,17 +7,15 @@ use std::{i64, str, u64};
 use super::{Error, EvalContext, Result, ScalarFunc};
 
 use tidb_query_datatype::prelude::*;
-use tidb_query_datatype::{self, Collation, FieldTypeFlag, FieldTypeTp, UNSPECIFIED_LENGTH};
-use tipb::expression::FieldType;
+use tidb_query_datatype::{self, FieldTypeFlag, FieldTypeTp, UNSPECIFIED_LENGTH};
+use tipb::FieldType;
 
 use crate::codec::convert::ConvertTo;
 use crate::codec::convert::*;
 use crate::codec::data_type::Bytes;
 use crate::codec::mysql::decimal::RoundMode;
-use crate::codec::mysql::{
-    charset, Decimal, Duration, Json, Res, Time, TimeType, DEFAULT_FSP, MAX_FSP,
-};
-use crate::codec::{error, mysql, Datum};
+use crate::codec::mysql::{charset, Decimal, Duration, Json, Res, Time, TimeType, DEFAULT_FSP};
+use crate::codec::{mysql, Datum};
 use crate::expr::Flag;
 
 impl ScalarFunc {
@@ -202,7 +200,7 @@ impl ScalarFunc {
 
     // Ok
     pub fn cast_int_as_real(&self, ctx: &mut EvalContext, row: &[Datum]) -> Result<Option<f64>> {
-        println!("ScalarFunc cast_int_as_real, self.in union: {}, self.is_unsigned: {}, self.children[0].is_unsigned",
+        println!("ScalarFunc cast_int_as_real, self.in union: {}, self.is_unsigned: {}, self.children[0].is_unsigned: {}",
                  self.in_union(), self.is_unsigned(), self.children[0].is_unsigned());
 
         let val: i64 = try_opt!(self.children[0].eval_int(ctx, row));
@@ -396,7 +394,7 @@ impl ScalarFunc {
             self.children[0].field_type().is_hybrid()
         );
 
-        let dec = if self.children[0].field_type().is_hybrid() {
+        let dec: Cow<Decimal> = if self.children[0].field_type().is_hybrid() {
             try_opt!(self.children[0].eval_decimal(ctx, row))
         } else {
             let val = try_opt!(self.children[0].eval_string(ctx, row));
@@ -408,7 +406,8 @@ impl ScalarFunc {
                 }
             }
         };
-        self.produce_dec_with_specified_tp(ctx, dec).map(Some)
+        Self::produce_dec_with_specified_tp(ctx, dec.into_owned(), &self.field_type)
+            .map(|x| Some(Cow::Owned(x)))
     }
 
     // Ok

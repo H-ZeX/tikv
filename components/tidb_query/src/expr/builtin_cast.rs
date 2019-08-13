@@ -23,7 +23,11 @@ use crate::expr::Flag;
 impl ScalarFunc {
     // OK
     pub fn cast_int_as_int(&self, ctx: &mut EvalContext, row: &[Datum]) -> Result<Option<i64>> {
-        println!("ScalarFunc cast_int_as_int, self.in union: {}, self.is_unsigned: {}", self.in_union(), self.is_unsigned());
+        println!(
+            "ScalarFunc cast_int_as_int, self.in union: {}, self.is_unsigned: {}",
+            self.in_union(),
+            self.is_unsigned()
+        );
         let r: i64 = try_opt!(self.children[0].eval_int(ctx, row));
         if self.in_union() && self.is_unsigned() && r < 0 {
             Ok(Some(0))
@@ -34,7 +38,11 @@ impl ScalarFunc {
 
     // OK
     pub fn cast_real_as_int(&self, ctx: &mut EvalContext, row: &[Datum]) -> Result<Option<i64>> {
-        println!("ScalarFunc cast_real_as_int, self.in union: {}, self.is_unsigned: {}", self.in_union(), self.is_unsigned());
+        println!(
+            "ScalarFunc cast_real_as_int, self.in union: {}, self.is_unsigned: {}",
+            self.in_union(),
+            self.is_unsigned()
+        );
         let x: f64 = try_opt!(self.children[0].eval_real(ctx, row));
         if !self.is_unsigned() {
             Ok(Some(<f64 as ConvertTo<i64>>::convert(&x, ctx)?))
@@ -48,7 +56,14 @@ impl ScalarFunc {
 
     // TODO
     pub fn cast_decimal_as_int(&self, ctx: &mut EvalContext, row: &[Datum]) -> Result<Option<i64>> {
-        println!("ScalarFunc cast_decimal_as_int, self.in union: {}, self.is_unsigned: {}", self.in_union(), self.is_unsigned());
+        println!(
+            "ScalarFunc cast_decimal_as_int, self.in union: {}, self.is_unsigned: {}, \n\
+             overflow_as_warning: {}",
+            self.in_union(),
+            self.is_unsigned(),
+            ctx.cfg.flag.contains(Flag::OVERFLOW_AS_WARNING)
+        );
+
         let val = try_opt!(self.children[0].eval_decimal(ctx, row));
         let val = val.into_owned().round(0, RoundMode::HalfEven).unwrap();
         let (overflow, res) = if self
@@ -76,7 +91,14 @@ impl ScalarFunc {
 
     // TODO
     pub fn cast_str_as_int(&self, ctx: &mut EvalContext, row: &[Datum]) -> Result<Option<i64>> {
-        println!("ScalarFunc cast_str_as_int, self.in union: {}, self.is_unsigned: {}", self.in_union(), self.is_unsigned());
+        println!(
+            "ScalarFunc cast_str_as_int, self.in union: {}, self.is_unsigned: {}, \n\
+             children[0].is_hybrid: {}",
+            self.in_union(),
+            self.is_unsigned(),
+            self.children[0].field_type().is_hybrid()
+        );
+
         if self.children[0].field_type().is_hybrid() {
             return self.children[0].eval_int(ctx, row);
         }
@@ -130,7 +152,11 @@ impl ScalarFunc {
 
     // OK
     pub fn cast_time_as_int(&self, ctx: &mut EvalContext, row: &[Datum]) -> Result<Option<i64>> {
-        println!("ScalarFunc cast_time_as_int, self.in union: {}, self.is_unsigned: {}", self.in_union(), self.is_unsigned());
+        println!(
+            "ScalarFunc cast_time_as_int, self.in union: {}, self.is_unsigned: {}",
+            self.in_union(),
+            self.is_unsigned()
+        );
         let val: Cow<Time> = try_opt!(self.children[0].eval_time(ctx, row));
         let mut val: Time = val.into_owned();
         val.round_frac(DEFAULT_FSP)?;
@@ -145,7 +171,11 @@ impl ScalarFunc {
         ctx: &mut EvalContext,
         row: &[Datum],
     ) -> Result<Option<i64>> {
-        println!("ScalarFunc cast_duration_as_int, self.in union: {}, self.is_unsigned: {}", self.in_union(), self.is_unsigned());
+        println!(
+            "ScalarFunc cast_duration_as_int, self.in union: {}, self.is_unsigned: {}",
+            self.in_union(),
+            self.is_unsigned()
+        );
         let val: Duration = try_opt!(self.children[0].eval_duration(ctx, row));
         let val = val.round_frac(DEFAULT_FSP)?;
         let dec: Decimal = <Duration as ConvertTo<Decimal>>::convert(&val, ctx)?;
@@ -155,7 +185,11 @@ impl ScalarFunc {
 
     // Ok
     pub fn cast_json_as_int(&self, ctx: &mut EvalContext, row: &[Datum]) -> Result<Option<i64>> {
-        println!("ScalarFunc cast_json_as_int, self.in union: {}, self.is_unsigned: {}", self.in_union(), self.is_unsigned());
+        println!(
+            "ScalarFunc cast_json_as_int, self.in union: {}, self.is_unsigned: {}",
+            self.in_union(),
+            self.is_unsigned()
+        );
         let val: Cow<Json> = try_opt!(self.children[0].eval_json(ctx, row));
         if self.is_unsigned() {
             let res = <Json as ConvertTo<u64>>::convert(&val, ctx)?;
@@ -168,7 +202,9 @@ impl ScalarFunc {
 
     // Ok
     pub fn cast_int_as_real(&self, ctx: &mut EvalContext, row: &[Datum]) -> Result<Option<f64>> {
-        println!("ScalarFunc cast_int_as_real, self.in union: {}, self.is_unsigned: {}", self.in_union(), self.is_unsigned());
+        println!("ScalarFunc cast_int_as_real, self.in union: {}, self.is_unsigned: {}, self.children[0].is_unsigned",
+                 self.in_union(), self.is_unsigned(), self.children[0].is_unsigned());
+
         let val: i64 = try_opt!(self.children[0].eval_int(ctx, row));
         if !self.is_unsigned() && !self.children[0].is_unsigned() {
             Ok(Some(val as f64))
@@ -182,7 +218,11 @@ impl ScalarFunc {
 
     // Ok
     pub fn cast_real_as_real(&self, ctx: &mut EvalContext, row: &[Datum]) -> Result<Option<f64>> {
-        println!("ScalarFunc cast_real_as_real, self.in union: {}, self.is_unsigned: {}", self.in_union(), self.is_unsigned());
+        println!(
+            "ScalarFunc cast_real_as_real, self.in union: {}, self.is_unsigned: {}",
+            self.in_union(),
+            self.is_unsigned()
+        );
         let val: f64 = try_opt!(self.children[0].eval_real(ctx, row));
         if self.in_union() && self.is_unsigned() && val < 0f64 {
             Ok(Some(0f64))
@@ -197,7 +237,11 @@ impl ScalarFunc {
         ctx: &mut EvalContext,
         row: &[Datum],
     ) -> Result<Option<f64>> {
-        println!("ScalarFunc cast_decimal_as_real, self.in union: {}, self.is_unsigned: {}", self.in_union(), self.is_unsigned());
+        println!(
+            "ScalarFunc cast_decimal_as_real, self.in union: {}, self.is_unsigned: {}",
+            self.in_union(),
+            self.is_unsigned()
+        );
         let val: Cow<Decimal> = try_opt!(self.children[0].eval_decimal(ctx, row));
         if self.in_union() && self.is_unsigned() && val.is_negative() {
             Ok(Some(0f64))
@@ -209,7 +253,11 @@ impl ScalarFunc {
 
     // Ok
     pub fn cast_str_as_real(&self, ctx: &mut EvalContext, row: &[Datum]) -> Result<Option<f64>> {
-        println!("ScalarFunc cast_str_as_real, self.in union: {}, self.is_unsigned: {}", self.in_union(), self.is_unsigned());
+        println!(
+            "ScalarFunc cast_str_as_real, self.in union: {}, self.is_unsigned: {}",
+            self.in_union(),
+            self.is_unsigned()
+        );
         let val: Cow<[u8]> = try_opt!(self.children[0].eval_string(ctx, row));
         let res: f64 = <&[u8] as ConvertTo<f64>>::convert(&val.as_ref(), ctx)?;
         if self.in_union() && self.is_unsigned() && res < 0f64 {
@@ -221,7 +269,11 @@ impl ScalarFunc {
 
     // Ok
     pub fn cast_time_as_real(&self, ctx: &mut EvalContext, row: &[Datum]) -> Result<Option<f64>> {
-        println!("ScalarFunc cast_time_as_real, self.in union: {}, self.is_unsigned: {}", self.in_union(), self.is_unsigned());
+        println!(
+            "ScalarFunc cast_time_as_real, self.in union: {}, self.is_unsigned: {}",
+            self.in_union(),
+            self.is_unsigned()
+        );
         let val: Cow<Time> = try_opt!(self.children[0].eval_time(ctx, row));
         let dec: Decimal = <Time as ConvertTo<Decimal>>::convert(&val, ctx)?;
         let n: f64 = <Decimal as ConvertTo<f64>>::convert(&dec, ctx)?;
@@ -234,7 +286,11 @@ impl ScalarFunc {
         ctx: &mut EvalContext,
         row: &[Datum],
     ) -> Result<Option<f64>> {
-        println!("ScalarFunc cast_duration_as_real, self.in union: {}, self.is_unsigned: {}", self.in_union(), self.is_unsigned());
+        println!(
+            "ScalarFunc cast_duration_as_real, self.in union: {}, self.is_unsigned: {}",
+            self.in_union(),
+            self.is_unsigned()
+        );
         let val: Duration = try_opt!(self.children[0].eval_duration(ctx, row));
         let dec: Decimal = <Duration as ConvertTo<Decimal>>::convert(&val, ctx)?;
         Ok(Some(<Decimal as ConvertTo<f64>>::convert(&dec, ctx)?))
@@ -242,7 +298,11 @@ impl ScalarFunc {
 
     // Ok
     pub fn cast_json_as_real(&self, ctx: &mut EvalContext, row: &[Datum]) -> Result<Option<f64>> {
-        println!("ScalarFunc cast_json_as_real, self.in union: {}, self.is_unsigned: {}", self.in_union(), self.is_unsigned());
+        println!(
+            "ScalarFunc cast_json_as_real, self.in union: {}, self.is_unsigned: {}",
+            self.in_union(),
+            self.is_unsigned()
+        );
         let val: Cow<Json> = try_opt!(self.children[0].eval_json(ctx, row));
         Ok(Some(<Json as ConvertTo<f64>>::convert(&val, ctx)?))
     }
@@ -253,7 +313,13 @@ impl ScalarFunc {
         ctx: &mut EvalContext,
         row: &[Datum],
     ) -> Result<Option<Cow<'a, Decimal>>> {
-        println!("ScalarFunc cast_int_as_decimal, self.in union: {}, self.is_unsigned: {}", self.in_union(), self.is_unsigned());
+        println!(
+            "ScalarFunc cast_int_as_decimal, self.in union: {}, self.is_unsigned: {},\n\
+             self.children[0].is_unsigned(): {}",
+            self.in_union(),
+            self.is_unsigned(),
+            self.children[0].is_unsigned()
+        );
         let val: i64 = try_opt!(self.children[0].eval_int(ctx, row));
         let res = if !self.is_unsigned() && !self.children[0].is_unsigned() {
             Decimal::from(val)
@@ -275,7 +341,11 @@ impl ScalarFunc {
         ctx: &mut EvalContext,
         row: &'a [Datum],
     ) -> Result<Option<Cow<'a, Decimal>>> {
-        println!("ScalarFunc cast_real_as_decimal, self.in union: {}, self.is_unsigned: {}", self.in_union(), self.is_unsigned());
+        println!(
+            "ScalarFunc cast_real_as_decimal, self.in union: {}, self.is_unsigned: {}",
+            self.in_union(),
+            self.is_unsigned()
+        );
         let val: f64 = try_opt!(self.children[0].eval_real(ctx, row));
         let res = if !self.in_union() || val >= 0f64 {
             // TODO, if f64 is inf/-inf/nan, TiDB's err is [types:1]Bad Number, which is different from ours
@@ -295,7 +365,11 @@ impl ScalarFunc {
         ctx: &mut EvalContext,
         row: &'a [Datum],
     ) -> Result<Option<Cow<'a, Decimal>>> {
-        println!("ScalarFunc cast_decimal_as_decimal, self.in union: {}, self.is_unsigned: {}", self.in_union(), self.is_unsigned());
+        println!(
+            "ScalarFunc cast_decimal_as_decimal, self.in union: {}, self.is_unsigned: {}",
+            self.in_union(),
+            self.is_unsigned()
+        );
         let val: Cow<Decimal> = try_opt!(self.children[0].eval_decimal(ctx, row));
         let res = if !(self.in_union() && self.is_unsigned() && val.is_negative()) {
             val
@@ -314,7 +388,14 @@ impl ScalarFunc {
         ctx: &mut EvalContext,
         row: &'a [Datum],
     ) -> Result<Option<Cow<'a, Decimal>>> {
-        println!("ScalarFunc cast_str_as_decimal, self.in union: {}, self.is_unsigned: {}", self.in_union(), self.is_unsigned());
+        println!(
+            "ScalarFunc cast_str_as_decimal, self.in union: {}, self.is_unsigned: {}, \n\
+             self.children[0].field_type().is_hybrid(): {}",
+            self.in_union(),
+            self.is_unsigned(),
+            self.children[0].field_type().is_hybrid()
+        );
+
         let dec = if self.children[0].field_type().is_hybrid() {
             try_opt!(self.children[0].eval_decimal(ctx, row))
         } else {
@@ -336,7 +417,11 @@ impl ScalarFunc {
         ctx: &mut EvalContext,
         row: &'a [Datum],
     ) -> Result<Option<Cow<'a, Decimal>>> {
-        println!("ScalarFunc cast_time_as_decimal, self.in union: {}, self.is_unsigned: {}", self.in_union(), self.is_unsigned());
+        println!(
+            "ScalarFunc cast_time_as_decimal, self.in union: {}, self.is_unsigned: {}",
+            self.in_union(),
+            self.is_unsigned()
+        );
         let val: Cow<Time> = try_opt!(self.children[0].eval_time(ctx, row));
         let dec: Decimal = <Time as ConvertTo<Decimal>>::convert(&val, ctx)?;
         match Self::produce_dec_with_specified_tp(ctx, dec, &self.field_type) {
@@ -351,7 +436,11 @@ impl ScalarFunc {
         ctx: &mut EvalContext,
         row: &'a [Datum],
     ) -> Result<Option<Cow<'a, Decimal>>> {
-        println!("ScalarFunc cast_duration_as_decimal, self.in union: {}, self.is_unsigned: {}", self.in_union(), self.is_unsigned());
+        println!(
+            "ScalarFunc cast_duration_as_decimal, self.in union: {}, self.is_unsigned: {}",
+            self.in_union(),
+            self.is_unsigned()
+        );
         let val: Duration = try_opt!(self.children[0].eval_duration(ctx, row));
         let dec: Decimal = <Duration as ConvertTo<Decimal>>::convert(&val, ctx)?;
         match Self::produce_dec_with_specified_tp(ctx, dec, &self.field_type) {
@@ -366,7 +455,11 @@ impl ScalarFunc {
         ctx: &mut EvalContext,
         row: &'a [Datum],
     ) -> Result<Option<Cow<'a, Decimal>>> {
-        println!("ScalarFunc cast_json_as_decimal, self.in union: {}, self.is_unsigned: {}", self.in_union(), self.is_unsigned());
+        println!(
+            "ScalarFunc cast_json_as_decimal, self.in union: {}, self.is_unsigned: {}",
+            self.in_union(),
+            self.is_unsigned()
+        );
         let val: Cow<Json> = try_opt!(self.children[0].eval_json(ctx, row));
         let dec: Decimal = <Json as ConvertTo<Decimal>>::convert(&val, ctx)?;
         match Self::produce_dec_with_specified_tp(ctx, dec, &self.field_type) {
@@ -381,7 +474,14 @@ impl ScalarFunc {
         ctx: &mut EvalContext,
         row: &'a [Datum],
     ) -> Result<Option<Cow<'a, [u8]>>> {
-        println!("ScalarFunc cast_int_as_str, self.in union: {}, self.is_unsigned: {}", self.in_union(), self.is_unsigned());
+        println!(
+            "ScalarFunc cast_int_as_str, self.in union: {}, self.is_unsigned: {},\n\
+             self.children[0].is_unsigned(): {}",
+            self.in_union(),
+            self.is_unsigned(),
+            self.children[0].is_unsigned()
+        );
+
         let val: i64 = try_opt!(self.children[0].eval_int(ctx, row));
         let s = if self.children[0].is_unsigned() {
             let val = val as u64;
@@ -406,7 +506,14 @@ impl ScalarFunc {
         ctx: &mut EvalContext,
         row: &'a [Datum],
     ) -> Result<Option<Cow<'a, [u8]>>> {
-        println!("ScalarFunc cast_real_as_str, self.in union: {}, self.is_unsigned: {}", self.in_union(), self.is_unsigned());
+        println!(
+            "ScalarFunc cast_real_as_str, self.in union: {}, self.is_unsigned: {},\n\
+             self.children[0].field_type().tp().eq(&FieldTypeTp::Float: {}",
+            self.in_union(),
+            self.is_unsigned(),
+            self.children[0].field_type().tp().eq(&FieldTypeTp::Float)
+        );
+
         let val: f64 = try_opt!(self.children[0].eval_real(ctx, row));
         // TODO, is this right?
         let s = if self.children[0].field_type().tp().eq(&FieldTypeTp::Float) {
@@ -432,7 +539,12 @@ impl ScalarFunc {
         ctx: &mut EvalContext,
         row: &'a [Datum],
     ) -> Result<Option<Cow<'a, [u8]>>> {
-        println!("ScalarFunc cast_decimal_as_str, self.in union: {}, self.is_unsigned: {}", self.in_union(), self.is_unsigned());
+        println!(
+            "ScalarFunc cast_decimal_as_str, self.in union: {}, self.is_unsigned: {}",
+            self.in_union(),
+            self.is_unsigned()
+        );
+
         let val: Cow<Decimal> = try_opt!(self.children[0].eval_decimal(ctx, row));
         let s = val.to_string();
         let n = Self::produce_str_with_specified_tp(
@@ -452,7 +564,11 @@ impl ScalarFunc {
         ctx: &mut EvalContext,
         row: &'a [Datum],
     ) -> Result<Option<Cow<'a, [u8]>>> {
-        println!("ScalarFunc cast_str_as_str, self.in union: {}, self.is_unsigned: {}", self.in_union(), self.is_unsigned());
+        println!(
+            "ScalarFunc cast_str_as_str, self.in union: {}, self.is_unsigned: {}",
+            self.in_union(),
+            self.is_unsigned()
+        );
         let val: Cow<[u8]> = try_opt!(self.children[0].eval_string(ctx, row));
         let n = Self::produce_str_with_specified_tp(ctx, val, &self.field_type, false)?;
         let mut n = n.to_vec();
@@ -466,7 +582,11 @@ impl ScalarFunc {
         ctx: &mut EvalContext,
         row: &'a [Datum],
     ) -> Result<Option<Cow<'a, [u8]>>> {
-        println!("ScalarFunc cast_time_as_str, self.in union: {}, self.is_unsigned: {}", self.in_union(), self.is_unsigned());
+        println!(
+            "ScalarFunc cast_time_as_str, self.in union: {}, self.is_unsigned: {}",
+            self.in_union(),
+            self.is_unsigned()
+        );
         let val: Cow<Time> = try_opt!(self.children[0].eval_time(ctx, row));
         let s: Bytes = <Time as ConvertTo<Bytes>>::convert(&val, ctx)?;
         let n = Self::produce_str_with_specified_tp(ctx, Cow::Owned(s), &self.field_type, false)?;
@@ -481,7 +601,11 @@ impl ScalarFunc {
         ctx: &mut EvalContext,
         row: &'a [Datum],
     ) -> Result<Option<Cow<'a, [u8]>>> {
-        println!("ScalarFunc cast_duration_as_str, self.in union: {}, self.is_unsigned: {}", self.in_union(), self.is_unsigned());
+        println!(
+            "ScalarFunc cast_duration_as_str, self.in union: {}, self.is_unsigned: {}",
+            self.in_union(),
+            self.is_unsigned()
+        );
         let val: Duration = try_opt!(self.children[0].eval_duration(ctx, row));
         let s: Bytes = <Duration as ConvertTo<Bytes>>::convert(&val, ctx)?;
         let n = Self::produce_str_with_specified_tp(ctx, Cow::Owned(s), &self.field_type, false)?;
@@ -496,7 +620,11 @@ impl ScalarFunc {
         ctx: &mut EvalContext,
         row: &'a [Datum],
     ) -> Result<Option<Cow<'a, [u8]>>> {
-        println!("ScalarFunc cast_json_as_str, self.in union: {}, self.is_unsigned: {}", self.in_union(), self.is_unsigned());
+        println!(
+            "ScalarFunc cast_json_as_str, self.in union: {}, self.is_unsigned: {}",
+            self.in_union(),
+            self.is_unsigned()
+        );
         let val: Cow<Json> = try_opt!(self.children[0].eval_json(ctx, row));
         let n: Bytes = <Json as ConvertTo<Bytes>>::convert(val.as_ref(), ctx)?;
         Ok(Some(Cow::Owned(n)))
@@ -508,7 +636,11 @@ impl ScalarFunc {
         ctx: &mut EvalContext,
         row: &'a [Datum],
     ) -> Result<Option<Cow<'a, Time>>> {
-        println!("ScalarFunc cast_int_as_time, self.in union: {}, self.is_unsigned: {}", self.in_union(), self.is_unsigned());
+        println!(
+            "ScalarFunc cast_int_as_time, self.in union: {}, self.is_unsigned: {}",
+            self.in_union(),
+            self.is_unsigned()
+        );
         let val = try_opt!(self.children[0].eval_int(ctx, row));
         let s = format!("{}", val);
         Ok(Some(self.produce_time_with_str(ctx, &s)?))
@@ -519,7 +651,11 @@ impl ScalarFunc {
         ctx: &mut EvalContext,
         row: &'a [Datum],
     ) -> Result<Option<Cow<'a, Time>>> {
-        println!("ScalarFunc cast_real_as_time, self.in union: {}, self.is_unsigned: {}", self.in_union(), self.is_unsigned());
+        println!(
+            "ScalarFunc cast_real_as_time, self.in union: {}, self.is_unsigned: {}",
+            self.in_union(),
+            self.is_unsigned()
+        );
         let val = try_opt!(self.children[0].eval_real(ctx, row));
         let s = format!("{}", val);
         Ok(Some(self.produce_time_with_str(ctx, &s)?))
@@ -530,7 +666,11 @@ impl ScalarFunc {
         ctx: &mut EvalContext,
         row: &'a [Datum],
     ) -> Result<Option<Cow<'a, Time>>> {
-        println!("ScalarFunc cast_decimal_as_time, self.in union: {}, self.is_unsigned: {}", self.in_union(), self.is_unsigned());
+        println!(
+            "ScalarFunc cast_decimal_as_time, self.in union: {}, self.is_unsigned: {}",
+            self.in_union(),
+            self.is_unsigned()
+        );
         let val = try_opt!(self.children[0].eval_decimal(ctx, row));
         let s = val.to_string();
         Ok(Some(self.produce_time_with_float_str(ctx, &s)?))
@@ -541,7 +681,11 @@ impl ScalarFunc {
         ctx: &mut EvalContext,
         row: &'a [Datum],
     ) -> Result<Option<Cow<'a, Time>>> {
-        println!("ScalarFunc cast_str_as_time, self.in union: {}, self.is_unsigned: {}", self.in_union(), self.is_unsigned());
+        println!(
+            "ScalarFunc cast_str_as_time, self.in union: {}, self.is_unsigned: {}",
+            self.in_union(),
+            self.is_unsigned()
+        );
         let val = try_opt!(self.children[0].eval_string_and_decode(ctx, row));
         Ok(Some(self.produce_time_with_str(ctx, &val)?))
     }
@@ -551,7 +695,11 @@ impl ScalarFunc {
         ctx: &mut EvalContext,
         row: &'a [Datum],
     ) -> Result<Option<Cow<'a, Time>>> {
-        println!("ScalarFunc cast_time_as_time, self.in union: {}, self.is_unsigned: {}", self.in_union(), self.is_unsigned());
+        println!(
+            "ScalarFunc cast_time_as_time, self.in union: {}, self.is_unsigned: {}",
+            self.in_union(),
+            self.is_unsigned()
+        );
         let val = try_opt!(self.children[0].eval_time(ctx, row));
         let mut val = val.into_owned();
         val.round_frac(self.field_type.decimal() as i8)?;
@@ -565,7 +713,11 @@ impl ScalarFunc {
         ctx: &mut EvalContext,
         row: &'a [Datum],
     ) -> Result<Option<Cow<'a, Time>>> {
-        println!("ScalarFunc cast_duration_as_time, self.in union: {}, self.is_unsigned: {}", self.in_union(), self.is_unsigned());
+        println!(
+            "ScalarFunc cast_duration_as_time, self.in union: {}, self.is_unsigned: {}",
+            self.in_union(),
+            self.is_unsigned()
+        );
         let val = try_opt!(self.children[0].eval_duration(ctx, row));
         let mut val = Time::from_duration(
             &ctx.cfg.tz,
@@ -581,7 +733,11 @@ impl ScalarFunc {
         ctx: &mut EvalContext,
         row: &'a [Datum],
     ) -> Result<Option<Cow<'a, Time>>> {
-        println!("ScalarFunc cast_json_as_time, self.in union: {}, self.is_unsigned: {}", self.in_union(), self.is_unsigned());
+        println!(
+            "ScalarFunc cast_json_as_time, self.in union: {}, self.is_unsigned: {}",
+            self.in_union(),
+            self.is_unsigned()
+        );
         let val = try_opt!(self.children[0].eval_json(ctx, row));
         let s = val.unquote()?;
         Ok(Some(self.produce_time_with_str(ctx, &s)?))
@@ -592,7 +748,11 @@ impl ScalarFunc {
         ctx: &mut EvalContext,
         row: &'a [Datum],
     ) -> Result<Option<Duration>> {
-        println!("ScalarFunc cast_int_as_duration, self.in union: {}, self.is_unsigned: {}", self.in_union(), self.is_unsigned());
+        println!(
+            "ScalarFunc cast_int_as_duration, self.in union: {}, self.is_unsigned: {}",
+            self.in_union(),
+            self.is_unsigned()
+        );
         let val = try_opt!(self.children[0].eval_int(ctx, row));
         let s = format!("{}", val);
         // TODO: port NumberToDuration from tidb.
@@ -614,7 +774,11 @@ impl ScalarFunc {
         ctx: &mut EvalContext,
         row: &'a [Datum],
     ) -> Result<Option<Duration>> {
-        println!("ScalarFunc cast_real_as_duration, self.in union: {}, self.is_unsigned: {}", self.in_union(), self.is_unsigned());
+        println!(
+            "ScalarFunc cast_real_as_duration, self.in union: {}, self.is_unsigned: {}",
+            self.in_union(),
+            self.is_unsigned()
+        );
         let val = try_opt!(self.children[0].eval_real(ctx, row));
         let s = format!("{}", val);
         let dur = Duration::parse(s.as_bytes(), self.field_type.decimal() as i8)?;
@@ -626,7 +790,11 @@ impl ScalarFunc {
         ctx: &mut EvalContext,
         row: &'a [Datum],
     ) -> Result<Option<Duration>> {
-        println!("ScalarFunc cast_decimal_as_duration, self.in union: {}, self.is_unsigned: {}", self.in_union(), self.is_unsigned());
+        println!(
+            "ScalarFunc cast_decimal_as_duration, self.in union: {}, self.is_unsigned: {}",
+            self.in_union(),
+            self.is_unsigned()
+        );
         let val = try_opt!(self.children[0].eval_decimal(ctx, row));
         let s = val.to_string();
         let dur = Duration::parse(s.as_bytes(), self.field_type.decimal() as i8)?;
@@ -638,7 +806,11 @@ impl ScalarFunc {
         ctx: &mut EvalContext,
         row: &'a [Datum],
     ) -> Result<Option<Duration>> {
-        println!("ScalarFunc cast_str_as_duration, self.in union: {}, self.is_unsigned: {}", self.in_union(), self.is_unsigned());
+        println!(
+            "ScalarFunc cast_str_as_duration, self.in union: {}, self.is_unsigned: {}",
+            self.in_union(),
+            self.is_unsigned()
+        );
         let val = try_opt!(self.children[0].eval_string(ctx, row));
         let dur = Duration::parse(val.as_ref(), self.field_type.decimal() as i8)?;
         Ok(Some(dur))
@@ -650,7 +822,11 @@ impl ScalarFunc {
         ctx: &mut EvalContext,
         row: &'a [Datum],
     ) -> Result<Option<Duration>> {
-        println!("ScalarFunc cast_time_as_duration, self.in union: {}, self.is_unsigned: {}", self.in_union(), self.is_unsigned());
+        println!(
+            "ScalarFunc cast_time_as_duration, self.in union: {}, self.is_unsigned: {}",
+            self.in_union(),
+            self.is_unsigned()
+        );
         let val = try_opt!(self.children[0].eval_time(ctx, row));
         let res = val
             .to_duration()?
@@ -664,7 +840,11 @@ impl ScalarFunc {
         ctx: &mut EvalContext,
         row: &'a [Datum],
     ) -> Result<Option<Duration>> {
-        println!("ScalarFunc cast_duration_as_duration, self.in union: {}, self.is_unsigned: {}", self.in_union(), self.is_unsigned());
+        println!(
+            "ScalarFunc cast_duration_as_duration, self.in union: {}, self.is_unsigned: {}",
+            self.in_union(),
+            self.is_unsigned()
+        );
         let val: Duration = try_opt!(self.children[0].eval_duration(ctx, row));
         let res = val.round_frac(self.field_type.decimal() as i8)?;
         Ok(Some(res))
@@ -676,7 +856,11 @@ impl ScalarFunc {
         ctx: &mut EvalContext,
         row: &'a [Datum],
     ) -> Result<Option<Duration>> {
-        println!("ScalarFunc cast_json_as_duration, self.in union: {}, self.is_unsigned: {}", self.in_union(), self.is_unsigned());
+        println!(
+            "ScalarFunc cast_json_as_duration, self.in union: {}, self.is_unsigned: {}",
+            self.in_union(),
+            self.is_unsigned()
+        );
         let val = try_opt!(self.children[0].eval_json(ctx, row));
         let s = val.unquote()?;
         // TODO: tidb would handle truncate here
@@ -690,7 +874,22 @@ impl ScalarFunc {
         ctx: &mut EvalContext,
         row: &'a [Datum],
     ) -> Result<Option<Cow<'a, Json>>> {
-        println!("ScalarFunc cast_int_as_json, self.in union: {}, self.is_unsigned: {}", self.in_union(), self.is_unsigned());
+        println!(
+            "ScalarFunc cast_int_as_json, self.in union: {}, self.is_unsigned: {}, \n\
+             self.children[0].field_type().flag().contains(FieldTypeFlag::IS_BOOLEAN): {}, \n\
+             self.children[0].field_type().flag().contains(FieldTypeFlag::UNSIGNED): {}",
+            self.in_union(),
+            self.is_unsigned(),
+            self.children[0]
+                .field_type()
+                .flag()
+                .contains(FieldTypeFlag::IS_BOOLEAN),
+            self.children[0]
+                .field_type()
+                .flag()
+                .contains(FieldTypeFlag::UNSIGNED)
+        );
+
         let val: i64 = try_opt!(self.children[0].eval_int(ctx, row));
         let flag = self.children[0].field_type().flag();
         let j = if flag.contains(FieldTypeFlag::IS_BOOLEAN) {
@@ -709,7 +908,11 @@ impl ScalarFunc {
         ctx: &mut EvalContext,
         row: &'a [Datum],
     ) -> Result<Option<Cow<'a, Json>>> {
-        println!("ScalarFunc cast_real_as_json, self.in union: {}, self.is_unsigned: {}", self.in_union(), self.is_unsigned());
+        println!(
+            "ScalarFunc cast_real_as_json, self.in union: {}, self.is_unsigned: {}",
+            self.in_union(),
+            self.is_unsigned()
+        );
         let val: f64 = try_opt!(self.children[0].eval_real(ctx, row));
         // FIXME: `select json_type(cast(1111.11 as json))` should return `DECIMAL`, we return `DOUBLE` now.
         //  However, tikv's json has no decimal
@@ -723,7 +926,11 @@ impl ScalarFunc {
         ctx: &mut EvalContext,
         row: &'a [Datum],
     ) -> Result<Option<Cow<'a, Json>>> {
-        println!("ScalarFunc cast_decimal_as_json, self.in union: {}, self.is_unsigned: {}", self.in_union(), self.is_unsigned());
+        println!(
+            "ScalarFunc cast_decimal_as_json, self.in union: {}, self.is_unsigned: {}",
+            self.in_union(),
+            self.is_unsigned()
+        );
         let val: Cow<Decimal> = try_opt!(self.children[0].eval_decimal(ctx, row));
         let val = <Decimal as ConvertTo<f64>>::convert(&val, ctx)?;
         // FIXME: `select json_type(cast(1111.11 as json))` should return `DECIMAL`, we return `DOUBLE` now.
@@ -738,7 +945,16 @@ impl ScalarFunc {
         ctx: &mut EvalContext,
         row: &'a [Datum],
     ) -> Result<Option<Cow<'a, Json>>> {
-        println!("ScalarFunc cast_str_as_json, self.in union: {}, self.is_unsigned: {}", self.in_union(), self.is_unsigned());
+        println!(
+            "ScalarFunc cast_str_as_json, self.in union: {}, self.is_unsigned: {}\n\
+             self.field_type.flag().contains(FieldTypeFlag::PARSE_TO_JSON): {}",
+            self.in_union(),
+            self.is_unsigned(),
+            self.field_type
+                .flag()
+                .contains(FieldTypeFlag::PARSE_TO_JSON)
+        );
+
         let val: Cow<str> = try_opt!(self.children[0].eval_string_and_decode(ctx, row));
         if self
             .field_type
@@ -758,7 +974,11 @@ impl ScalarFunc {
         ctx: &mut EvalContext,
         row: &'a [Datum],
     ) -> Result<Option<Cow<'a, Json>>> {
-        println!("ScalarFunc cast_time_as_json, self.in union: {}, self.is_unsigned: {}", self.in_union(), self.is_unsigned());
+        println!(
+            "ScalarFunc cast_time_as_json, self.in union: {}, self.is_unsigned: {}",
+            self.in_union(),
+            self.is_unsigned()
+        );
         let val: Cow<Time> = try_opt!(self.children[0].eval_time(ctx, row));
         if val.get_time_type() == TimeType::DateTime || val.get_time_type() == TimeType::Timestamp {
             let mut val: Time = val.into_owned();
@@ -775,7 +995,11 @@ impl ScalarFunc {
         ctx: &mut EvalContext,
         row: &'a [Datum],
     ) -> Result<Option<Cow<'a, Json>>> {
-        println!("ScalarFunc cast_duration_as_json, self.in union: {}, self.is_unsigned: {}", self.in_union(), self.is_unsigned());
+        println!(
+            "ScalarFunc cast_duration_as_json, self.in union: {}, self.is_unsigned: {}",
+            self.in_union(),
+            self.is_unsigned()
+        );
         let mut val: Duration = try_opt!(self.children[0].eval_duration(ctx, row));
         val = val.maximize_fsp();
         Ok(Some(Cow::Owned(Json::String(val.to_string()))))
@@ -787,7 +1011,11 @@ impl ScalarFunc {
         ctx: &mut EvalContext,
         row: &'a [Datum],
     ) -> Result<Option<Cow<'a, Json>>> {
-        println!("ScalarFunc cast_json_as_json, self.in union: {}, self.is_unsigned: {}", self.in_union(), self.is_unsigned());
+        println!(
+            "ScalarFunc cast_json_as_json, self.in union: {}, self.is_unsigned: {}",
+            self.in_union(),
+            self.is_unsigned()
+        );
         self.children[0].eval_json(ctx, row)
     }
 

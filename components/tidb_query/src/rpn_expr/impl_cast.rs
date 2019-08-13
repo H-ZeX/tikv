@@ -145,7 +145,10 @@ fn cast_uint_as_decimal(
     extra: &RpnFnCallExtra<'_>,
     val: &Option<i64>,
 ) -> Result<Option<Decimal>> {
-    println!("rpn, cast_uint_as_decimal, in_union: {}", in_union(extra.implicit_args));
+    println!(
+        "rpn, cast_uint_as_decimal, in_union: {}",
+        in_union(extra.implicit_args)
+    );
     match val {
         None => Ok(None),
         Some(val) => {
@@ -171,7 +174,10 @@ pub fn cast_any_as_decimal<From: Evaluable + ConvertTo<Decimal>>(
     extra: &RpnFnCallExtra<'_>,
     val: &Option<From>,
 ) -> Result<Option<Decimal>> {
-    println!("rpn, cast_any_as_decimal, from type: {}", get_type_name::<From>());
+    println!(
+        "rpn, cast_any_as_decimal, from type: {}",
+        get_type_name::<From>()
+    );
     match val {
         None => Ok(None),
         Some(val) => {
@@ -191,7 +197,11 @@ fn cast_any_as_any<From: ConvertTo<To> + Evaluable, To: Evaluable>(
     ctx: &mut EvalContext,
     val: &Option<From>,
 ) -> Result<Option<To>> {
-    println!("rpn, cast_any_as_any, from type: {}, to type: {}", get_type_name::<From>(), get_type_name::<To>());
+    println!(
+        "rpn, cast_any_as_any, from type: {}, to type: {}",
+        get_type_name::<From>(),
+        get_type_name::<To>()
+    );
     match val {
         None => Ok(None),
         Some(val) => {
@@ -204,7 +214,10 @@ fn cast_any_as_any<From: ConvertTo<To> + Evaluable, To: Evaluable>(
 #[rpn_fn(capture = [extra])]
 #[inline]
 fn cast_uint_as_int(extra: &RpnFnCallExtra<'_>, val: &Option<Int>) -> Result<Option<i64>> {
-    println!("rpn, cast_uint_as_int, in_union: {}", in_union(extra.implicit_args));
+    println!(
+        "rpn, cast_uint_as_int, in_union: {}",
+        in_union(extra.implicit_args)
+    );
     match val {
         None => Ok(None),
         Some(val) => {
@@ -222,7 +235,10 @@ fn cast_uint_as_int(extra: &RpnFnCallExtra<'_>, val: &Option<Int>) -> Result<Opt
 #[rpn_fn(capture = [extra])]
 #[inline]
 fn cast_uint_as_real(extra: &RpnFnCallExtra<'_>, val: &Option<Int>) -> Result<Option<Real>> {
-    println!("rpn, cast_uint_as_real, in_union: {}", in_union(extra.implicit_args));
+    println!(
+        "rpn, cast_uint_as_real, in_union: {}",
+        in_union(extra.implicit_args)
+    );
     match val {
         None => Ok(None),
         Some(val) => {

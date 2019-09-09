@@ -627,7 +627,7 @@ impl Duration {
             sep,
             self.secs()
         )
-        .unwrap();
+            .unwrap();
 
         let fsp = usize::from(self.fsp());
 
@@ -638,7 +638,7 @@ impl Duration {
                 self.micros() / TEN_POW[MICRO_WIDTH - fsp],
                 width = fsp
             )
-            .unwrap();
+                .unwrap();
         }
 
         string
@@ -650,14 +650,13 @@ impl Duration {
         self.format("")
     }
 
-    pub fn from_i64(ctx: &mut EvalContext, mut n: i64, fsp: u8) -> Result<Duration> {
-        use crate::codec::error::ERR_TRUNCATE_WRONG_VALUE;
-
+    /// If the error is overflow, the result will return true,
+    /// otherwise, only one of result or err will be returned
+    pub fn from_i64_without_ctx(mut n: i64, fsp: u8) -> (Option<Duration>, Option<Error>) {
         if n > i64::from(MAX_DURATION_VALUE) || n < -i64::from(MAX_DURATION_VALUE) {
             // FIXME: parse as `DateTime` if `n >= 10000000000`
-            ctx.handle_overflow_err(Error::overflow("Duration", &n.to_string()))?;
             let max = Duration::new(n < 0, MAX_HOURS, MAX_MINUTES, MAX_SECONDS, 0, fsp);
-            return Ok(max);
+            return (Some(max), Some(Error::overflow("Duration", &n.to_string())));
         }
 
         let negative = n < 0;
@@ -665,10 +664,13 @@ impl Duration {
             n = -n;
         }
         if n / 10000 > i64::from(MAX_HOURS) || n % 100 >= 60 || (n / 100) % 100 >= 60 {
-            return Err(Error::Eval(
-                format!("invalid time format: '{}'", n),
-                ERR_TRUNCATE_WRONG_VALUE,
-            ));
+            return (
+                None,
+                Some(Error::Eval(
+                    format!("invalid time format: '{}'", n),
+                    ERR_TRUNCATE_WRONG_VALUE,
+                )),
+            );
         }
         let dur = Duration::new(
             negative,
@@ -678,7 +680,32 @@ impl Duration {
             0,
             fsp,
         );
-        Ok(dur)
+        (Some(dur), None)
+    }
+
+    pub fn from_i64(ctx: &mut EvalContext, n: i64, fsp: u8) -> Result<Duration> {
+        let (dur, err) = Duration::from_i64_without_ctx(n, fsp);
+        match err {
+            Some(e) => {
+                if e.is_overflow() {
+                    ctx.handle_overflow_err(e)?;
+                    if dur.is_none() {
+                        Err(box_err!("Expect a not none result here, this is a bug"))
+                    } else {
+                        Ok(dur.unwrap())
+                    }
+                } else {
+                    Err(e)
+                }
+            }
+            None => {
+                if dur.is_none() {
+                    Err(box_err!("Expect a not none result here, this is a bug"))
+                } else {
+                    Ok(dur.unwrap())
+                }
+            }
+        }
     }
 }
 
@@ -780,7 +807,9 @@ mod tests {
 
     use super::*;
     use crate::codec::data_type::DateTime;
-    use crate::expr::EvalContext;
+    use crate::codec::error::ERR_TRUNCATE_WRONG_VALUE;
+    use crate::expr::{EvalConfig, EvalContext, Flag};
+    use std::sync::Arc;
 
     #[test]
     fn test_hours() {
@@ -1106,6 +1135,183 @@ mod tests {
         let rhs = Duration::from_nanos(MAX_TIME_IN_SECS * NANOS_PER_SEC, 6).unwrap();
         assert_eq!(lhs.checked_sub(rhs), None);
     }
+
+    #[test]
+    fn test_from_i64() {
+        let cs: Vec<(i64, u8, Result<Duration>, bool)> = vec![
+            // (input, fsp, expect, overflow)
+            (
+                101010,
+                0,
+                Ok(Duration::parse("10:10:10".as_bytes(), 0).unwrap()),
+                false,
+            ),
+            (
+                101010,
+                5,
+                Ok(Duration::parse("10:10:10".as_bytes(), 5).unwrap()),
+                false,
+            ),
+            (
+                8385959,
+                0,
+                Ok(Duration::parse("838:59:59".as_bytes(), 0).unwrap()),
+                false,
+            ),
+            (
+                8385959,
+                6,
+                Ok(Duration::parse("838:59:59".as_bytes(), 6).unwrap()),
+                false,
+            ),
+            (
+                -101010,
+                0,
+                Ok(Duration::parse("-10:10:10".as_bytes(), 0).unwrap()),
+                false,
+            ),
+            (
+                -101010,
+                5,
+                Ok(Duration::parse("-10:10:10".as_bytes(), 5).unwrap()),
+                false,
+            ),
+            (
+                -8385959,
+                0,
+                Ok(Duration::parse("-838:59:59".as_bytes(), 0).unwrap()),
+                false,
+            ),
+            (
+                -8385959,
+                6,
+                Ok(Duration::parse("-838:59:59".as_bytes(), 6).unwrap()),
+                false,
+            ),
+            // will overflow
+            (
+                8385960,
+                0,
+                Ok(Duration::parse("838:59:59".as_bytes(), 0).unwrap()),
+                true,
+            ),
+            (
+                8385960,
+                1,
+                Ok(Duration::parse("838:59:59".as_bytes(), 1).unwrap()),
+                true,
+            ),
+            (
+                8385960,
+                5,
+                Ok(Duration::parse("838:59:59".as_bytes(), 5).unwrap()),
+                true,
+            ),
+            (
+                8385960,
+                6,
+                Ok(Duration::parse("838:59:59".as_bytes(), 6).unwrap()),
+                true,
+            ),
+            (
+                -8385960,
+                0,
+                Ok(Duration::parse("-838:59:59".as_bytes(), 0).unwrap()),
+                true,
+            ),
+            (
+                -8385960,
+                1,
+                Ok(Duration::parse("-838:59:59".as_bytes(), 1).unwrap()),
+                true,
+            ),
+            (
+                -8385960,
+                5,
+                Ok(Duration::parse("-838:59:59".as_bytes(), 5).unwrap()),
+                true,
+            ),
+            (
+                -8385960,
+                6,
+                Ok(Duration::parse("-838:59:59".as_bytes(), 6).unwrap()),
+                true,
+            ),
+            // will truncated
+            (8376049, 0, Err(Error::truncated_wrong_val("", "")), false),
+            (8375960, 0, Err(Error::truncated_wrong_val("", "")), false),
+            (8376049, 0, Err(Error::truncated_wrong_val("", "")), false),
+            // TODO, add test for num>=10000000000
+            //  after Duration::from_f64 had impl logic for num>=10000000000
+            // (10000000000, 0, Ok(Duration::parse("0:0:0".as_bytes(), 0).unwrap())),
+            // (10000235959, 0, Ok(Duration::parse("23:59:59".as_bytes(), 0).unwrap())),
+            // (10000000000, 0, Ok(Duration::parse("0:0:0".as_bytes(), 0).unwrap())),
+        ];
+        for (input, fsp, expect, overflow) in cs {
+            let cfg = Arc::new(EvalConfig::from_flag(Flag::OVERFLOW_AS_WARNING));
+            let mut ctx = EvalContext::new(cfg);
+            let r = Duration::from_i64(&mut ctx, input, fsp);
+            let expect_str = if expect.is_ok() {
+                format!("{}", expect.as_ref().unwrap())
+            } else {
+                format!("{:?}", &expect)
+            };
+            let result_str = if r.is_ok() {
+                format!("{}", r.as_ref().unwrap())
+            } else {
+                format!("{:?}", &r)
+            };
+            assert_eq!(
+                r.is_ok(),
+                expect.is_ok(),
+                "input: {}, fsp: {}, expect: {}, output: {}",
+                input,
+                fsp,
+                expect_str,
+                result_str
+            );
+            if r.is_ok() {
+                let r = r.unwrap();
+                assert_eq!(
+                    r,
+                    expect.unwrap(),
+                    "input: {}, fsp: {}, expect: {}, output: {}",
+                    input,
+                    fsp,
+                    expect_str,
+                    result_str
+                );
+            } else {
+                let e = r.err().unwrap();
+                let e2 = expect.err().unwrap();
+                assert_eq!(
+                    e.code(),
+                    e2.code(),
+                    "input: {}, fsp: {}, expect: {}, output: {}",
+                    input,
+                    fsp,
+                    expect_str,
+                    result_str
+                );
+            }
+            if overflow {
+                assert_eq!(
+                    ctx.warnings.warning_cnt, 1,
+                    "input: {}, fsp: {}, expect: {}, output: {}",
+                    input, fsp, expect_str, result_str
+                );
+                assert_eq!(
+                    ctx.warnings.warnings[0].get_code(),
+                    ERR_TRUNCATE_WRONG_VALUE,
+                    "input: {}, fsp: {}, expect: {}, output: {}",
+                    input,
+                    fsp,
+                    expect_str,
+                    result_str
+                );
+            }
+        }
+    }
 }
 
 #[cfg(test)]
@@ -1178,9 +1384,9 @@ mod benches {
             ("1 23", 5),
             ("1 23:12.1234567", 6),
         ]
-        .into_iter()
-        .map(|(s, fsp)| Duration::parse(s.as_bytes(), fsp).unwrap())
-        .collect();
+            .into_iter()
+            .map(|(s, fsp)| Duration::parse(s.as_bytes(), fsp).unwrap())
+            .collect();
         b.iter(|| {
             let cases = test::black_box(&cases);
             for &duration in cases {
@@ -1201,14 +1407,14 @@ mod benches {
             ("11:30:45.123456", "12:30:00"),
             ("11:30:45.123456", "1 12:30:00"),
         ]
-        .into_iter()
-        .map(|(lhs, rhs)| {
-            (
-                Duration::parse(lhs.as_bytes(), MAX_FSP).unwrap(),
-                Duration::parse(rhs.as_bytes(), MAX_FSP).unwrap(),
-            )
-        })
-        .collect();
+            .into_iter()
+            .map(|(lhs, rhs)| {
+                (
+                    Duration::parse(lhs.as_bytes(), MAX_FSP).unwrap(),
+                    Duration::parse(rhs.as_bytes(), MAX_FSP).unwrap(),
+                )
+            })
+            .collect();
 
         b.iter(|| {
             let cases = test::black_box(&cases);

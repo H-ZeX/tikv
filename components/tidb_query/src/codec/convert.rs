@@ -2023,8 +2023,9 @@ mod tests {
         let cfg = EvalConfig::from_flag(Flag::TRUNCATE_AS_WARNING);
         let mut ctx = EvalContext::new(Arc::new(cfg));
         let mut ft = FieldType::default();
-        <FieldType as FieldTypeAccessor>::set_tp(&mut ft, FieldTypeTp::String);
-        <FieldType as FieldTypeAccessor>::set_collation(&mut ft, Collation::Binary);
+        let fta = ft.as_mut_accessor();
+        fta.set_tp(FieldTypeTp::String);
+        fta.set_collation(Collation::Binary);
 
         for (s, char_num, cs) in cases {
             ft.set_charset(cs.to_string());

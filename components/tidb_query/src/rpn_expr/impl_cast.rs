@@ -192,7 +192,7 @@ fn in_union(implicit_args: &[ScalarValue]) -> bool {
 }
 
 fn get_type_name<T>() -> String {
-    format!("{}", unsafe { std::intrinsics::type_name::<T>() })
+    format!("{}", std::intrinsics::type_name::<T>())
 }
 
 // cast any as int/uint, some cast functions reuse `cast_any_as_any`
@@ -209,7 +209,12 @@ fn cast_signed_int_as_unsigned_int(
     extra: &RpnFnCallExtra<'_>,
     val: &Option<Int>,
 ) -> Result<Option<Int>> {
-    println!("cast_signed_int_as_unsigned_int, in_union: {:?}, val: {:?}", in_union(extra.implicit_args), val);
+    let log = val.as_ref().map(|x| x.to_string());
+    println!(
+        "cast_signed_int_as_unsigned_int, in_union: {:?}, val: {:?}",
+        in_union(extra.implicit_args),
+        log
+    );
     match val {
         None => Ok(None),
         Some(val) => {
@@ -226,7 +231,8 @@ fn cast_signed_int_as_unsigned_int(
 #[rpn_fn]
 #[inline]
 fn cast_int_as_int_others(val: &Option<Int>) -> Result<Option<Int>> {
-    println!("cast_int_as_int_others, val: {:?}", val);
+    let log = val.as_ref().map(|x| x.to_string());
+    println!("cast_int_as_int_others, val: {:?}", log);
     match val {
         None => Ok(None),
         Some(val) => Ok(Some(*val)),
@@ -240,7 +246,12 @@ fn cast_real_as_uint(
     extra: &RpnFnCallExtra<'_>,
     val: &Option<Real>,
 ) -> Result<Option<Int>> {
-    println!("cast_real_as_uint, in_union: {}, val: {:?}", in_union(&extra.implicit_args), val);
+    let log = val.as_ref().map(|x| x.to_string());
+    println!(
+        "cast_real_as_uint, in_union: {}, val: {:?}",
+        in_union(&extra.implicit_args),
+        log
+    );
     match val {
         None => Ok(None),
         Some(val) => {
@@ -267,9 +278,14 @@ fn cast_string_as_int_or_uint(
     extra: &RpnFnCallExtra<'_>,
     val: &Option<Bytes>,
 ) -> Result<Option<Int>> {
+    let log = val
+        .as_ref()
+        .map(|x| unsafe { String::from_utf8_unchecked(x.clone()) });
     println!(
         "cast_string_as_int_or_uint, in_union: {}, ret_unsigned: {}, val: {:?}",
-        in_union(&extra.implicit_args), extra.ret_field_type.is_unsigned(), val
+        in_union(&extra.implicit_args),
+        extra.ret_field_type.is_unsigned(),
+        log
     );
     match val {
         None => Ok(None),
@@ -333,7 +349,12 @@ fn cast_decimal_as_uint(
     extra: &RpnFnCallExtra<'_>,
     val: &Option<Decimal>,
 ) -> Result<Option<Int>> {
-    println!("cast_decimal_as_uint, in_union: {}, val: {:?}", in_union(extra.implicit_args), val);
+    let log = val.as_ref().map(|x| x.to_string());
+    println!(
+        "cast_decimal_as_uint, in_union: {}, val: {:?}",
+        in_union(extra.implicit_args),
+        log
+    );
     match val {
         None => Ok(None),
         Some(val) => {
@@ -351,7 +372,8 @@ fn cast_decimal_as_uint(
 #[rpn_fn(capture = [ctx])]
 #[inline]
 fn cast_json_as_uint(ctx: &mut EvalContext, val: &Option<Json>) -> Result<Option<Int>> {
-    println!("cast_json_as_uint");
+    let log = val.as_ref().map(|x| x.to_string());
+    println!("cast_json_as_uint, val: {:?}", log);
     match val {
         None => Ok(None),
         Some(j) => {
@@ -371,7 +393,8 @@ fn cast_json_as_uint(ctx: &mut EvalContext, val: &Option<Json>) -> Result<Option
 #[rpn_fn]
 #[inline]
 fn cast_signed_int_as_signed_real(val: &Option<Int>) -> Result<Option<Real>> {
-    println!("cast_signed_int_as_signed_real, val: {:?}", val);
+    let log = val.as_ref().map(|x| x.to_string());
+    println!("cast_signed_int_as_signed_real, val: {:?}", log);
     match val {
         None => Ok(None),
         Some(val) => Ok(Real::new(*val as f64).ok()),
@@ -384,7 +407,12 @@ fn cast_signed_int_as_unsigned_real(
     extra: &RpnFnCallExtra,
     val: &Option<Int>,
 ) -> Result<Option<Real>> {
-    println!("cast_signed_int_as_unsigned_real, in_union: {}, val: {:?}", in_union(extra.implicit_args), val);
+    let log = val.as_ref().map(|x| x.to_string());
+    println!(
+        "cast_signed_int_as_unsigned_real, in_union: {}, val: {:?}",
+        in_union(extra.implicit_args),
+        log
+    );
     match val {
         None => Ok(None),
         Some(val) => {
@@ -403,7 +431,11 @@ fn cast_signed_int_as_unsigned_real(
 #[rpn_fn]
 #[inline]
 fn cast_unsigned_int_as_signed_or_unsigned_real(val: &Option<Int>) -> Result<Option<Real>> {
-    println!("cast_unsigned_int_as_signed_or_unsigned_real, val: {:?}", val);
+    let log = val.as_ref().map(|x| x.to_string());
+    println!(
+        "cast_unsigned_int_as_signed_or_unsigned_real, val: {:?}",
+        log
+    );
     match val {
         None => Ok(None),
         Some(val) => Ok(Real::new(*val as u64 as f64).ok()),
@@ -413,7 +445,8 @@ fn cast_unsigned_int_as_signed_or_unsigned_real(val: &Option<Int>) -> Result<Opt
 #[rpn_fn]
 #[inline]
 fn cast_real_as_signed_real(val: &Option<Real>) -> Result<Option<Real>> {
-    println!("cast_real_as_signed_real, val: {:?}", val);
+    let log = val.as_ref().map(|x| x.to_string());
+    println!("cast_real_as_signed_real, val: {:?}", log);
     Ok(*val)
 }
 
@@ -423,7 +456,12 @@ fn cast_real_as_unsigned_real(
     extra: &RpnFnCallExtra<'_>,
     val: &Option<Real>,
 ) -> Result<Option<Real>> {
-    println!("cast_real_as_unsigned_real, in_union: {}, val: {:?}", in_union(extra.implicit_args), val);
+    let log = val.as_ref().map(|x| x.to_string());
+    println!(
+        "cast_real_as_unsigned_real, in_union: {}, val: {:?}",
+        in_union(extra.implicit_args),
+        log
+    );
     match val {
         None => Ok(None),
         Some(val) => {
@@ -444,7 +482,10 @@ fn cast_string_as_signed_real(
     extra: &RpnFnCallExtra,
     val: &Option<Bytes>,
 ) -> Result<Option<Real>> {
-    println!("cast_string_as_signed_real, val: {:?}", val);
+    let log = val
+        .as_ref()
+        .map(|x| unsafe { String::from_utf8_unchecked(x.clone()) });
+    println!("cast_string_as_signed_real, val: {:?}", log);
     match val {
         None => Ok(None),
         Some(val) => {
@@ -464,7 +505,14 @@ fn cast_string_as_unsigned_real(
     extra: &RpnFnCallExtra,
     val: &Option<Bytes>,
 ) -> Result<Option<Real>> {
-    println!("cast_string_as_unsigned_real, in_union: {}, val: {:?}", in_union(extra.implicit_args), val);
+    let log = val
+        .as_ref()
+        .map(|x| unsafe { String::from_utf8_unchecked(x.clone()) });
+    println!(
+        "cast_string_as_unsigned_real, in_union: {}, val: {:?}",
+        in_union(extra.implicit_args),
+        log
+    );
     match val {
         None => Ok(None),
         Some(val) => {
@@ -488,7 +536,12 @@ fn cast_decimal_as_unsigned_real(
     extra: &RpnFnCallExtra<'_>,
     val: &Option<Decimal>,
 ) -> Result<Option<Real>> {
-    println!("cast_decimal_as_unsigned_real, in_union: {}, val: {:?}", in_union(extra.implicit_args), val);
+    let log = val.as_ref().map(|x| x.to_string());
+    println!(
+        "cast_decimal_as_unsigned_real, in_union: {}, val: {:?}",
+        in_union(extra.implicit_args),
+        log
+    );
     match val {
         None => Ok(None),
         Some(val) => {
@@ -551,11 +604,17 @@ pub fn cast_any_as_decimal<From: Evaluable + ConvertTo<Decimal>>(
 
 #[rpn_fn(capture = [ctx])]
 #[inline]
-fn cast_any_as_any<From: ConvertTo<To> + Evaluable, To: Evaluable>(
+fn cast_any_as_any<From: ConvertTo<To> + Evaluable + ToString, To: Evaluable>(
     ctx: &mut EvalContext,
     val: &Option<From>,
 ) -> Result<Option<To>> {
-    println!("cast_any_as_any, from_type: {}, to_type: {}, val: {:?}", get_type_name::<From>(), get_type_name::<To>(), val);
+    let log = val.as_ref().map(|x| x.to_string());
+    println!(
+        "cast_any_as_any, from_type: {}, to_type: {}, val: {:?}",
+        get_type_name::<From>(),
+        get_type_name::<To>(),
+        log
+    );
     match val {
         None => Ok(None),
         Some(val) => {
@@ -737,8 +796,8 @@ mod tests {
     }
 
     fn test_none_with_ctx_and_extra<F, Input, Ret>(func: F)
-        where
-            F: Fn(&mut EvalContext, &RpnFnCallExtra, &Option<Input>) -> Result<Option<Ret>>,
+    where
+        F: Fn(&mut EvalContext, &RpnFnCallExtra, &Option<Input>) -> Result<Option<Ret>>,
     {
         let mut ctx = EvalContext::default();
         let implicit_args = [ScalarValue::Int(Some(1))];
@@ -752,8 +811,8 @@ mod tests {
     }
 
     fn test_none_with_ctx<F, Input, Ret>(func: F)
-        where
-            F: Fn(&mut EvalContext, &Option<Input>) -> Result<Option<Ret>>,
+    where
+        F: Fn(&mut EvalContext, &Option<Input>) -> Result<Option<Ret>>,
     {
         let mut ctx = EvalContext::default();
         let r = func(&mut ctx, &None).unwrap();
@@ -761,8 +820,8 @@ mod tests {
     }
 
     fn test_none_with_extra<F, Input, Ret>(func: F)
-        where
-            F: Fn(&RpnFnCallExtra, &Option<Input>) -> Result<Option<Ret>>,
+    where
+        F: Fn(&RpnFnCallExtra, &Option<Input>) -> Result<Option<Ret>>,
     {
         let implicit_args = [ScalarValue::Int(Some(1))];
         let ret_field_type: FieldType = FieldType::default();
@@ -775,8 +834,8 @@ mod tests {
     }
 
     fn test_none_with_nothing<F, Input, Ret>(func: F)
-        where
-            F: Fn(&Option<Input>) -> Result<Option<Ret>>,
+    where
+        F: Fn(&Option<Input>) -> Result<Option<Ret>>,
     {
         let r = func(&None).unwrap();
         assert!(r.is_none());

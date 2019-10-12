@@ -221,6 +221,10 @@ fn in_union(implicit_args: &[ScalarValue]) -> bool {
     implicit_args.get(0) == Some(&ScalarValue::Int(Some(1)))
 }
 
+fn get_type_name<T>() -> String {
+    format!("{}", std::intrinsics::type_name::<T>())
+}
+
 // cast any as int/uint, some cast functions reuse `cast_any_as_any`
 //
 // - cast_real_as_int -> cast_any_as_any<Real, Int>
@@ -235,6 +239,12 @@ fn cast_signed_int_as_unsigned_int(
     extra: &RpnFnCallExtra<'_>,
     val: &Option<Int>,
 ) -> Result<Option<Int>> {
+    let log = val.as_ref().map(|x| x.to_string());
+    println!(
+        "cast_signed_int_as_unsigned_int, in_union: {:?}, val: {:?}",
+        in_union(extra.implicit_args),
+        log
+    );
     match val {
         None => Ok(None),
         Some(val) => {
@@ -251,6 +261,8 @@ fn cast_signed_int_as_unsigned_int(
 #[rpn_fn]
 #[inline]
 fn cast_int_as_int_others(val: &Option<Int>) -> Result<Option<Int>> {
+    let log = val.as_ref().map(|x| x.to_string());
+    println!("cast_int_as_int_others, val: {:?}", log);
     match val {
         None => Ok(None),
         Some(val) => Ok(Some(*val)),
@@ -264,6 +276,12 @@ fn cast_real_as_uint(
     extra: &RpnFnCallExtra<'_>,
     val: &Option<Real>,
 ) -> Result<Option<Int>> {
+    let log = val.as_ref().map(|x| x.to_string());
+    println!(
+        "cast_real_as_uint, in_union: {}, val: {:?}",
+        in_union(&extra.implicit_args),
+        log
+    );
     match val {
         None => Ok(None),
         Some(val) => {
@@ -290,6 +308,15 @@ fn cast_string_as_int_or_uint(
     extra: &RpnFnCallExtra<'_>,
     val: &Option<Bytes>,
 ) -> Result<Option<Int>> {
+    let log = val
+        .as_ref()
+        .map(|x| unsafe { String::from_utf8_unchecked(x.clone()) });
+    println!(
+        "cast_string_as_int_or_uint, in_union: {}, ret_unsigned: {}, val: {:?}",
+        in_union(&extra.implicit_args),
+        extra.ret_field_type.is_unsigned(),
+        log
+    );
     match val {
         None => Ok(None),
         Some(val) => {
@@ -331,24 +358,24 @@ fn cast_string_as_int_or_uint(
                         }
                         Ok(Some(x as i64))
                     }
-                    Err(err) => match *err.kind() {
-                        IntErrorKind::Overflow | IntErrorKind::Underflow => {
+                    Err(err) => {
+                        if err.kind() == &IntErrorKind::Overflow {
                             let err = if is_str_neg {
                                 Error::overflow("BIGINT UNSIGNED", valid_int_prefix)
                             } else {
                                 Error::overflow("BIGINT", valid_int_prefix)
                             };
-                            let warn_err = Error::truncated_wrong_val("INTEGER", val);
-                            ctx.handle_overflow_err(warn_err).map_err(|_| err)?;
+                            ctx.handle_overflow_err(err)?;
                             let val = if is_str_neg {
                                 std::i64::MIN
                             } else {
                                 std::u64::MAX as i64
                             };
                             Ok(Some(val))
+                        } else {
+                            Err(other_err!("parse string to int failed: {}", err))
                         }
-                        _ => Err(other_err!("parse string to int failed: {}", err)),
-                    },
+                    }
                 }
             }
         }
@@ -362,6 +389,12 @@ fn cast_decimal_as_uint(
     extra: &RpnFnCallExtra<'_>,
     val: &Option<Decimal>,
 ) -> Result<Option<Int>> {
+    let log = val.as_ref().map(|x| x.to_string());
+    println!(
+        "cast_decimal_as_uint, in_union: {}, val: {:?}",
+        in_union(extra.implicit_args),
+        log
+    );
     match val {
         None => Ok(None),
         Some(val) => {
@@ -379,6 +412,8 @@ fn cast_decimal_as_uint(
 #[rpn_fn(capture = [ctx])]
 #[inline]
 fn cast_json_as_uint(ctx: &mut EvalContext, val: &Option<Json>) -> Result<Option<Int>> {
+    let log = val.as_ref().map(|x| x.to_string());
+    println!("cast_json_as_uint, val: {:?}", log);
     match val {
         None => Ok(None),
         Some(j) => {
@@ -398,6 +433,8 @@ fn cast_json_as_uint(ctx: &mut EvalContext, val: &Option<Json>) -> Result<Option
 #[rpn_fn]
 #[inline]
 fn cast_signed_int_as_signed_real(val: &Option<Int>) -> Result<Option<Real>> {
+    let log = val.as_ref().map(|x| x.to_string());
+    println!("cast_signed_int_as_signed_real, val: {:?}", log);
     match val {
         None => Ok(None),
         Some(val) => Ok(Real::new(*val as f64).ok()),
@@ -410,6 +447,12 @@ fn cast_signed_int_as_unsigned_real(
     extra: &RpnFnCallExtra,
     val: &Option<Int>,
 ) -> Result<Option<Real>> {
+    let log = val.as_ref().map(|x| x.to_string());
+    println!(
+        "cast_signed_int_as_unsigned_real, in_union: {}, val: {:?}",
+        in_union(extra.implicit_args),
+        log
+    );
     match val {
         None => Ok(None),
         Some(val) => {
@@ -428,6 +471,11 @@ fn cast_signed_int_as_unsigned_real(
 #[rpn_fn]
 #[inline]
 fn cast_unsigned_int_as_signed_or_unsigned_real(val: &Option<Int>) -> Result<Option<Real>> {
+    let log = val.as_ref().map(|x| x.to_string());
+    println!(
+        "cast_unsigned_int_as_signed_or_unsigned_real, val: {:?}",
+        log
+    );
     match val {
         None => Ok(None),
         Some(val) => Ok(Real::new(*val as u64 as f64).ok()),
@@ -437,6 +485,8 @@ fn cast_unsigned_int_as_signed_or_unsigned_real(val: &Option<Int>) -> Result<Opt
 #[rpn_fn]
 #[inline]
 fn cast_real_as_signed_real(val: &Option<Real>) -> Result<Option<Real>> {
+    let log = val.as_ref().map(|x| x.to_string());
+    println!("cast_real_as_signed_real, val: {:?}", log);
     Ok(*val)
 }
 
@@ -446,6 +496,12 @@ fn cast_real_as_unsigned_real(
     extra: &RpnFnCallExtra<'_>,
     val: &Option<Real>,
 ) -> Result<Option<Real>> {
+    let log = val.as_ref().map(|x| x.to_string());
+    println!(
+        "cast_real_as_unsigned_real, in_union: {}, val: {:?}",
+        in_union(extra.implicit_args),
+        log
+    );
     match val {
         None => Ok(None),
         Some(val) => {
@@ -466,6 +522,10 @@ fn cast_string_as_signed_real(
     extra: &RpnFnCallExtra,
     val: &Option<Bytes>,
 ) -> Result<Option<Real>> {
+    let log = val
+        .as_ref()
+        .map(|x| unsafe { String::from_utf8_unchecked(x.clone()) });
+    println!("cast_string_as_signed_real, val: {:?}", log);
     match val {
         None => Ok(None),
         Some(val) => {
@@ -485,6 +545,14 @@ fn cast_string_as_unsigned_real(
     extra: &RpnFnCallExtra,
     val: &Option<Bytes>,
 ) -> Result<Option<Real>> {
+    let log = val
+        .as_ref()
+        .map(|x| unsafe { String::from_utf8_unchecked(x.clone()) });
+    println!(
+        "cast_string_as_unsigned_real, in_union: {}, val: {:?}",
+        in_union(extra.implicit_args),
+        log
+    );
     match val {
         None => Ok(None),
         Some(val) => {
@@ -508,6 +576,12 @@ fn cast_decimal_as_unsigned_real(
     extra: &RpnFnCallExtra<'_>,
     val: &Option<Decimal>,
 ) -> Result<Option<Real>> {
+    let log = val.as_ref().map(|x| x.to_string());
+    println!(
+        "cast_decimal_as_unsigned_real, in_union: {}, val: {:?}",
+        in_union(extra.implicit_args),
+        log
+    );
     match val {
         None => Ok(None),
         Some(val) => {
@@ -532,11 +606,13 @@ fn cast_decimal_as_unsigned_real(
 
 #[rpn_fn(capture = [ctx, extra])]
 #[inline]
-fn cast_any_as_string<T: ConvertTo<Bytes> + Evaluable>(
+fn cast_any_as_string<T: ConvertTo<Bytes> + Evaluable + ToString>(
     ctx: &mut EvalContext,
     extra: &RpnFnCallExtra,
     val: &Option<T>,
 ) -> Result<Option<Bytes>> {
+    let log = val.as_ref().map(|x| x.to_string());
+    println!("cast_any_as_string, val: {:?}", log);
     match val {
         None => Ok(None),
         Some(val) => {
@@ -553,6 +629,8 @@ fn cast_uint_as_string(
     extra: &RpnFnCallExtra<'_>,
     val: &Option<Int>,
 ) -> Result<Option<Bytes>> {
+    let log = val.as_ref().map(|x| x.to_string());
+    println!("cast_uint_as_string, val: {:?}", log);
     match val {
         None => Ok(None),
         Some(val) => {
@@ -569,6 +647,8 @@ fn cast_float_real_as_string(
     extra: &RpnFnCallExtra,
     val: &Option<Real>,
 ) -> Result<Option<Bytes>> {
+    let log = val.as_ref().map(|x| x.to_string());
+    println!("cast_float_real_as_string, val: {:?}", log);
     match val {
         None => Ok(None),
         Some(val) => {
@@ -589,6 +669,10 @@ fn cast_string_as_string(
     extra: &RpnFnCallExtra,
     val: &Option<Bytes>,
 ) -> Result<Option<Bytes>> {
+    let log = val
+        .as_ref()
+        .map(|x| unsafe { String::from_utf8_unchecked(x.clone()) });
+    println!("cast_string_as_string, val: {:?}", log);
     match val {
         None => Ok(None),
         Some(val) => {
@@ -604,6 +688,13 @@ fn cast_as_string_helper(
     extra: &RpnFnCallExtra,
     val: Vec<u8>,
 ) -> Result<Option<Bytes>> {
+    println!(
+        "cast_as_string_helper, flen: {}, decimal: {}, is_unsigned: {}",
+        log,
+        extra.ret_field_type.flen(),
+        extra.ret_field_type.decimal(),
+        ft.is_unsigned()
+    );
     let res = produce_str_with_specified_tp(
         ctx,
         Cow::Borrowed(val.as_slice()),
@@ -633,6 +724,14 @@ fn cast_unsigned_int_as_signed_or_unsigned_decimal(
     extra: &RpnFnCallExtra,
     val: &Option<i64>,
 ) -> Result<Option<Decimal>> {
+    let log = val.as_ref().map(|x| x.to_string());
+    println!(
+        "cast_unsigned_int_as_signed_or_unsigned_decimal, val: {:?},  flen: {}, decimal: {}, is_unsigned: {}",
+        log,
+        extra.ret_field_type.flen(),
+        extra.ret_field_type.decimal(),
+        ft.is_unsigned()
+    );
     match val {
         None => Ok(None),
         Some(val) => {
@@ -655,6 +754,15 @@ fn cast_signed_int_as_unsigned_decimal(
     extra: &RpnFnCallExtra<'_>,
     val: &Option<i64>,
 ) -> Result<Option<Decimal>> {
+    let log = val.as_ref().map(|x| x.to_string());
+    println!(
+        "cast_signed_int_as_unsigned_decimal, val: {:?}, in_union: {},  flen: {}, decimal: {}, is_unsigned: {}",
+        log,
+        in_union(extra.implicit_args),
+        extra.ret_field_type.flen(),
+        extra.ret_field_type.decimal(),
+        ft.is_unsigned()
+    );
     match val {
         None => Ok(None),
         Some(val) => {
@@ -679,6 +787,15 @@ fn cast_real_as_decimal(
     extra: &RpnFnCallExtra,
     val: &Option<Real>,
 ) -> Result<Option<Decimal>> {
+    let log = val.as_ref().map(|x| x.to_string());
+    println!(
+        "cast_real_as_decimal, val: {:?}, in_union: {},  flen: {}, decimal: {}, is_unsigned: {}",
+        log,
+        in_union(extra.implicit_args),
+        extra.ret_field_type.flen(),
+        extra.ret_field_type.decimal(),
+        ft.is_unsigned()
+    );
     match val {
         None => Ok(None),
         Some(val) => {
@@ -704,6 +821,15 @@ fn cast_string_as_unsigned_decimal(
     extra: &RpnFnCallExtra,
     val: &Option<Bytes>,
 ) -> Result<Option<Decimal>> {
+    let log = val.as_ref().map(|x| x.to_string());
+    println!(
+        "cast_string_as_unsigned_decimal, val: {:?}, in_union: {},  flen: {}, decimal: {}, is_unsigned: {}",
+        log,
+        in_union(extra.implicit_args),
+        extra.ret_field_type.flen(),
+        extra.ret_field_type.decimal(),
+        ft.is_unsigned()
+    );
     match val {
         None => Ok(None),
         Some(val) => {
@@ -730,6 +856,14 @@ fn cast_decimal_as_signed_decimal(
     extra: &RpnFnCallExtra,
     val: &Option<Decimal>,
 ) -> Result<Option<Decimal>> {
+    let log = val.as_ref().map(|x| x.to_string());
+    println!(
+        "cast_decimal_as_signed_decimal, val: {:?}, flen: {}, decimal: {}, is_unsigned: {}",
+        log,
+        extra.ret_field_type.flen(),
+        extra.ret_field_type.decimal(),
+        ft.is_unsigned()
+    );
     match val {
         None => Ok(None),
         Some(val) => {
@@ -750,6 +884,15 @@ fn cast_decimal_as_unsigned_decimal(
     extra: &RpnFnCallExtra,
     val: &Option<Decimal>,
 ) -> Result<Option<Decimal>> {
+    let log = val.as_ref().map(|x| x.to_string());
+    println!(
+        "cast_decimal_as_unsigned_decimal, val: {:?}, in_union: {},  flen: {}, decimal: {}, is_unsigned: {}",
+        log,
+        in_union(extra.implicit_args),
+        extra.ret_field_type.flen(),
+        extra.ret_field_type.decimal(),
+        ft.is_unsigned()
+    );
     match val {
         None => Ok(None),
         Some(val) => {
@@ -774,6 +917,14 @@ fn cast_any_as_decimal<From: Evaluable + ConvertTo<Decimal>>(
     extra: &RpnFnCallExtra<'_>,
     val: &Option<From>,
 ) -> Result<Option<Decimal>> {
+    let log = val.as_ref().map(|x| x.to_string());
+    println!(
+        "cast_any_as_decimal, val: {:?}, flen: {}, decimal: {}, is_unsigned: {}",
+        log,
+        extra.ret_field_type.flen(),
+        extra.ret_field_type.decimal(),
+        ft.is_unsigned()
+    );
     match val {
         None => Ok(None),
         Some(val) => {
@@ -796,6 +947,13 @@ fn cast_int_as_duration(
     extra: &RpnFnCallExtra<'_>,
     val: &Option<Int>,
 ) -> Result<Option<Duration>> {
+    let log = val.as_ref().map(|x| x.to_string());
+    println!(
+        "cast_int_as_duration, val: {:?}, decimal: {:?}, decimal as i8: {:?}",
+        log,
+        extra.ret_field_type.get_decimal(),
+        extra.ret_field_type.get_decimal() as i8
+    );
     match val {
         None => Ok(None),
         Some(val) => {
@@ -831,6 +989,13 @@ fn cast_time_as_duration(
     extra: &RpnFnCallExtra,
     val: &Option<DateTime>,
 ) -> Result<Option<Duration>> {
+    let log = val.as_ref().map(|x| x.to_string());
+    println!(
+        "cast_time_as_duration, val: {:?}, decimal: {:?}, decimal as i8: {:?}",
+        log,
+        extra.ret_field_type.get_decimal(),
+        extra.ret_field_type.get_decimal() as i8
+    );
     match val {
         None => Ok(None),
         Some(val) => {
@@ -846,6 +1011,13 @@ fn cast_duration_as_duration(
     extra: &RpnFnCallExtra,
     val: &Option<Duration>,
 ) -> Result<Option<Duration>> {
+    let log = val.as_ref().map(|x| x.to_string());
+    println!(
+        "cast_duration_as_duration, val: {:?}, decimal: {:?}, decimal as i8: {:?}",
+        log,
+        extra.ret_field_type.get_decimal(),
+        extra.ret_field_type.get_decimal() as i8
+    );
     match val {
         None => Ok(None),
         Some(val) => Ok(Some(val.round_frac(extra.ret_field_type.decimal() as i8)?)),
@@ -861,6 +1033,14 @@ macro_rules! cast_as_duration {
             extra: &RpnFnCallExtra<'_>,
             val: &Option<$ty>,
         ) -> Result<Option<Duration>> {
+            let log = val.as_ref().map(|x| x.to_string());
+            println!(
+                "{}, val: {:?}, decimal: {:?}, decimal as i8: {:?}",
+                stringify!($as_uint_fn)
+                log,
+                extra.ret_field_type.get_decimal(),
+                extra.ret_field_type.get_decimal() as i8
+            );
             match val {
                 None => Ok(None),
                 Some(val) => {
@@ -909,6 +1089,8 @@ cast_as_duration!(Json, cast_json_as_duration, val.unquote()?.as_bytes());
 #[rpn_fn]
 #[inline]
 fn cast_bool_as_json(val: &Option<Int>) -> Result<Option<Json>> {
+    let log = val.as_ref().map(|x| x.to_string());
+    println!("cast_bool_as_json, val: {:?}", log,);
     match val {
         None => Ok(None),
         Some(val) => Ok(Some(Json::Boolean(*val != 0))),
@@ -918,6 +1100,8 @@ fn cast_bool_as_json(val: &Option<Int>) -> Result<Option<Json>> {
 #[rpn_fn]
 #[inline]
 fn cast_uint_as_json(val: &Option<Int>) -> Result<Option<Json>> {
+    let log = val.as_ref().map(|x| x.to_string());
+    println!("cast_uint_as_json, val: {:?}", log,);
     match val {
         None => Ok(None),
         Some(val) => Ok(Some(Json::U64(*val as u64))),
@@ -927,6 +1111,15 @@ fn cast_uint_as_json(val: &Option<Int>) -> Result<Option<Json>> {
 #[rpn_fn(capture = [extra])]
 #[inline]
 fn cast_string_as_json(extra: &RpnFnCallExtra<'_>, val: &Option<Bytes>) -> Result<Option<Json>> {
+    let log = val.as_ref().map(|x| x.to_string());
+    println!(
+        "cast_string_as_json, val: {:?}, PARSE_TO_JSON: {:?}",
+        log,
+        extra
+            .ret_field_type
+            .flag()
+            .contains(FieldTypeFlag::PARSE_TO_JSON)
+    );
     match val {
         None => Ok(None),
         Some(val) => {
@@ -951,6 +1144,8 @@ fn cast_string_as_json(extra: &RpnFnCallExtra<'_>, val: &Option<Bytes>) -> Resul
 #[rpn_fn]
 #[inline]
 fn cast_json_as_json(val: &Option<Json>) -> Result<Option<Json>> {
+    let log = val.as_ref().map(|x| x.to_string());
+    println!("cast_json_as_json, val: {:?}", log,);
     match val {
         None => Ok(None),
         Some(val) => Ok(Some(val.clone())),
@@ -963,6 +1158,13 @@ fn cast_any_as_any<From: ConvertTo<To> + Evaluable, To: Evaluable>(
     ctx: &mut EvalContext,
     val: &Option<From>,
 ) -> Result<Option<To>> {
+    let log = val.as_ref().map(|x| x.to_string());
+    println!(
+        "cast_any_as_any, from_type: {}, to_type: {}, val: {:?}",
+        get_type_name::<From>(),
+        get_type_name::<To>(),
+        log
+    );
     match val {
         None => Ok(None),
         Some(val) => {

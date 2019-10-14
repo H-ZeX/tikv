@@ -24,10 +24,12 @@ fn in_union(implicit_args: &[Datum]) -> bool {
 
 impl ScalarFunc {
     pub fn cast_int_as_int(&self, ctx: &mut EvalContext, row: &[Datum]) -> Result<Option<i64>> {
+        println!("cast_int_as_int");
         self.children[0].eval_int(ctx, row)
     }
 
     pub fn cast_real_as_int(&self, ctx: &mut EvalContext, row: &[Datum]) -> Result<Option<i64>> {
+        println!("cast_real_as_int");
         let val = try_opt!(self.children[0].eval_real(ctx, row));
         if self
             .field_type
@@ -44,6 +46,7 @@ impl ScalarFunc {
     }
 
     pub fn cast_decimal_as_int(&self, ctx: &mut EvalContext, row: &[Datum]) -> Result<Option<i64>> {
+        println!("cast_decimal_as_int");
         let val = try_opt!(self.children[0].eval_decimal(ctx, row));
         let val = val.into_owned().round(0, RoundMode::HalfEven).unwrap();
         let (overflow, res) = if self
@@ -70,6 +73,7 @@ impl ScalarFunc {
     }
 
     pub fn cast_str_as_int(&self, ctx: &mut EvalContext, row: &[Datum]) -> Result<Option<i64>> {
+        println!("cast_str_as_int");
         if self.children[0].field_type().is_hybrid() {
             return self.children[0].eval_int(ctx, row);
         }
@@ -122,6 +126,7 @@ impl ScalarFunc {
     }
 
     pub fn cast_time_as_int(&self, ctx: &mut EvalContext, row: &[Datum]) -> Result<Option<i64>> {
+        println!("cast_time_as_int");
         let val: Cow<Time> = try_opt!(self.children[0].eval_time(ctx, row));
         let dec: Decimal = val.convert(ctx)?;
         let dec = dec
@@ -136,6 +141,7 @@ impl ScalarFunc {
         ctx: &mut EvalContext,
         row: &[Datum],
     ) -> Result<Option<i64>> {
+        println!("cast_duration_as_int");
         let val: Duration = try_opt!(self.children[0].eval_duration(ctx, row));
         let dec: Decimal = val.convert(ctx)?;
         let dec = dec
@@ -146,6 +152,7 @@ impl ScalarFunc {
     }
 
     pub fn cast_json_as_int(&self, ctx: &mut EvalContext, row: &[Datum]) -> Result<Option<i64>> {
+        println!("cast_json_as_int");
         let val: Cow<Json> = try_opt!(self.children[0].eval_json(ctx, row));
         let res = val.to_int(ctx, FieldTypeTp::LongLong)?;
         Ok(Some(res))

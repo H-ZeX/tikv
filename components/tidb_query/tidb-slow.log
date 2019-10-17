@@ -1,0 +1,15 @@
+# Time: 2019-10-14T13:05:02.385041972+08:00
+# Txn_start_ts: 0
+# User: root@127.0.0.1
+# Conn_ID: 5
+# Query_time: 0.490321817
+# Parse_time: 0.003123664
+# Compile_time: 0.000147775
+# DB: test
+# Is_internal: false
+# Digest: 9db9cefa8db7ac6279daba2ba920bcc8606ccdeaf9cf888c9b149c739e35f8e7
+# Num_cop_tasks: 0
+# Prepared: false
+# Has_more_results: false
+# Succ: true
+drop table if exists t;

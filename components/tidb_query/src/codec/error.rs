@@ -159,6 +159,7 @@ impl From<Error> for tipb::Error {
         let mut err = tipb::Error::default();
         err.set_code(error.code());
         err.set_msg(format!("{}", error));
+        println!("call From<Error> for tipb::Error, code: {}, msg: {}, tipb:Err: {:?}",error.code(), format!("{}", error), err);
         err
     }
 }

@@ -428,7 +428,7 @@ impl ScalarFunc {
         } else {
             val.to_string()
         };
-        self.produce_str_with_specified_tp(ctx, Cow::Owned(s.into_bytes()))
+        self.produce_str_with_specified_tp(ctx, Cow::Owned(val.into_bytes()))
             .map(Some)
     }
 

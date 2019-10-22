@@ -2028,6 +2028,7 @@ mod tests {
 
     #[test]
     fn test_json_as_uint() {
+        test_none_with_ctx(cast_json_as_uint);
         // no clip to zero
         let cs: Vec<(Json, u64, Option<i32>)> = vec![
             // (origin, expect, error_code)

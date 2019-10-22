@@ -198,11 +198,11 @@ impl ScalarFunc {
         let val: Cow<Json> = try_opt!(self.children[0].eval_json(ctx, row));
         println!("scalarfunc::cast_json_as_int {}, {}", format!("{:?}", val), val.to_string());
         let res = if self.children[0].is_unsigned() {
-            val.to_uint(ctx, FieldTypeTp::LongLong)?
+            val.to_uint(ctx, FieldTypeTp::LongLong)? as i64
         } else {
             val.to_int(ctx, FieldTypeTp::LongLong)?
         };
-        Ok(Some(res as i64))
+        Ok(Some(res))
     }
 
     pub fn cast_int_as_real(&self, ctx: &mut EvalContext, row: &[Datum]) -> Result<Option<f64>> {
@@ -886,7 +886,7 @@ mod tests {
         let mut ctx = EvalContext::new(Arc::new(EvalConfig::default_for_test()));
         let t = Time::parse_utc_datetime("2012-12-12 12:00:23", 0).unwrap();
         #[allow(clippy::inconsistent_digit_grouping)]
-        let time_int = 2012_12_12_12_00_23i64;
+            let time_int = 2012_12_12_12_00_23i64;
         let duration_t = Duration::parse(b"12:00:23", 0).unwrap();
         let cases = vec![
             (
@@ -1009,7 +1009,7 @@ mod tests {
         let mut ctx = EvalContext::new(Arc::new(EvalConfig::default_for_test()));
         let t = Time::parse_utc_datetime("2012-12-12 12:00:23", 0).unwrap();
         #[allow(clippy::inconsistent_digit_grouping)]
-        let int_t = 2012_12_12_12_00_23u64;
+            let int_t = 2012_12_12_12_00_23u64;
         let duration_t = Duration::parse(b"12:00:23", 0).unwrap();
         let cases = vec![
             (

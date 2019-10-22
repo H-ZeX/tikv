@@ -65,6 +65,7 @@ impl ScalarFunc {
             self.field_type.decimal() as i8
         );
     }
+
     pub fn cast_int_as_int(&self, ctx: &mut EvalContext, row: &[Datum]) -> Result<Option<i64>> {
         self.log(ctx, row, function!());
         self.children[0].eval_int(ctx, row)
@@ -197,7 +198,7 @@ impl ScalarFunc {
         self.log(ctx, row, function!());
         let val: Cow<Json> = try_opt!(self.children[0].eval_json(ctx, row));
         println!("scalarfunc::cast_json_as_int {}, {}", format!("{:?}", val), val.to_string());
-        let res = if self.children[0].is_unsigned() {
+        let res = if self.is_unsigned() {
             val.to_uint(ctx, FieldTypeTp::LongLong)? as i64
         } else {
             val.to_int(ctx, FieldTypeTp::LongLong)?
@@ -208,7 +209,7 @@ impl ScalarFunc {
     pub fn cast_int_as_real(&self, ctx: &mut EvalContext, row: &[Datum]) -> Result<Option<f64>> {
         self.log(ctx, row, function!());
         let val = try_opt!(self.children[0].eval_int(ctx, row));
-        let val = if !self.children[0].is_unsigned() {
+        let val = if !self.is_unsigned() {
             val as f64
         } else {
             val as u64 as f64
@@ -404,7 +405,7 @@ impl ScalarFunc {
     ) -> Result<Option<Cow<'a, [u8]>>> {
         self.log(ctx, row, function!());
         let val = try_opt!(self.children[0].eval_int(ctx, row));
-        let s = if self.children[0].is_unsigned() {
+        let s = if self.is_unsigned() {
             let uval = val as u64;
             format!("{}", uval)
         } else {
@@ -420,8 +421,13 @@ impl ScalarFunc {
         row: &'a [Datum],
     ) -> Result<Option<Cow<'a, [u8]>>> {
         self.log(ctx, row, function!());
-        let val = try_opt!(self.children[0].eval_real(ctx, row));
-        let s = format!("{}", val);
+        let val: f64 = try_opt!(self.children[0].eval_real(ctx, row));
+        let val = if self.children[0].field_type().tp() == FieldTypeTp::Float {
+            let val = val as f32;
+            val.to_string()
+        } else {
+            val.to_string()
+        };
         self.produce_str_with_specified_tp(ctx, Cow::Owned(s.into_bytes()))
             .map(Some)
     }
@@ -849,6 +855,10 @@ impl ScalarFunc {
         )?;
         t.set_time_type(self.field_type.as_accessor().tp().try_into()?)?;
         Ok(Cow::Owned(t))
+    }
+
+    fn is_unsigned(&self) -> bool {
+        self.field_type.flag().contains(FieldTypeFlag::UNSIGNED)
     }
 }
 

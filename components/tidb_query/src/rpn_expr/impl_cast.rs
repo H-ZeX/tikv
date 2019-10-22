@@ -413,7 +413,8 @@ fn cast_decimal_as_uint(
 #[inline]
 fn cast_json_as_uint(ctx: &mut EvalContext, val: &Option<Json>) -> Result<Option<Int>> {
     let log = val.as_ref().map(|x| x.to_string());
-    println!("cast_json_as_uint, val: {:?}", log);
+    let log2 = val.as_ref().map(|x| format!("{:?}", x));
+    println!("cast_json_as_uint, val: {:?}, {:?}", log, log2);
     match val {
         None => Ok(None),
         Some(j) => {

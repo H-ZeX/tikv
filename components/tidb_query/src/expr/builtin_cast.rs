@@ -198,7 +198,7 @@ impl ScalarFunc {
         self.log(ctx, row, function!());
         let val: Cow<Json> = try_opt!(self.children[0].eval_json(ctx, row));
         println!("scalarfunc::cast_json_as_int {}, {}", format!("{:?}", val), val.to_string());
-        let res = if self.is_unsigned() {
+        let res = if self.is_ret_type_unsigned() {
             val.to_uint(ctx, FieldTypeTp::LongLong)? as i64
         } else {
             val.to_int(ctx, FieldTypeTp::LongLong)?
@@ -209,7 +209,7 @@ impl ScalarFunc {
     pub fn cast_int_as_real(&self, ctx: &mut EvalContext, row: &[Datum]) -> Result<Option<f64>> {
         self.log(ctx, row, function!());
         let val = try_opt!(self.children[0].eval_int(ctx, row));
-        let val = if !self.is_unsigned() {
+        let val = if !self.children[0].is_unsigned() {
             val as f64
         } else {
             val as u64 as f64
@@ -405,7 +405,7 @@ impl ScalarFunc {
     ) -> Result<Option<Cow<'a, [u8]>>> {
         self.log(ctx, row, function!());
         let val = try_opt!(self.children[0].eval_int(ctx, row));
-        let s = if self.is_unsigned() {
+        let s = if self.is_ret_type_unsigned() {
             let uval = val as u64;
             format!("{}", uval)
         } else {
@@ -857,7 +857,7 @@ impl ScalarFunc {
         Ok(Cow::Owned(t))
     }
 
-    fn is_unsigned(&self) -> bool {
+    fn is_ret_type_unsigned(&self) -> bool {
         self.field_type.flag().contains(FieldTypeFlag::UNSIGNED)
     }
 }

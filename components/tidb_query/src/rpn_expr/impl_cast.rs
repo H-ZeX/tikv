@@ -1161,7 +1161,7 @@ cast_as_duration!(Json, cast_json_as_duration, val.unquote()?.as_bytes());
 #[inline]
 fn cast_bool_as_json(val: &Option<Int>) -> Result<Option<Json>> {
     let log = val.as_ref().map(|x| x.to_string());
-    println!("cast_bool_as_json, val: {:?}", log,);
+    println!("cast_bool_as_json, val: {:?}", log, );
     match val {
         None => Ok(None),
         Some(val) => Ok(Some(Json::Boolean(*val != 0))),
@@ -1172,7 +1172,7 @@ fn cast_bool_as_json(val: &Option<Int>) -> Result<Option<Json>> {
 #[inline]
 fn cast_uint_as_json(val: &Option<Int>) -> Result<Option<Json>> {
     let log = val.as_ref().map(|x| x.to_string());
-    println!("cast_uint_as_json, val: {:?}", log,);
+    println!("cast_uint_as_json, val: {:?}", log, );
     match val {
         None => Ok(None),
         Some(val) => Ok(Some(Json::U64(*val as u64))),
@@ -1218,7 +1218,7 @@ fn cast_string_as_json(extra: &RpnFnCallExtra<'_>, val: &Option<Bytes>) -> Resul
 #[inline]
 fn cast_json_as_json(val: &Option<Json>) -> Result<Option<Json>> {
     let log = val.as_ref().map(|x| x.to_string());
-    println!("cast_json_as_json, val: {:?}", log,);
+    println!("cast_json_as_json, val: {:?}", log, );
     match val {
         None => Ok(None),
         Some(val) => Ok(Some(val.clone())),
@@ -1291,8 +1291,8 @@ mod tests {
     }
 
     fn test_none_with_ctx_and_extra<F, Input, Ret>(func: F)
-    where
-        F: Fn(&mut EvalContext, &RpnFnCallExtra, &Option<Input>) -> Result<Option<Ret>>,
+        where
+            F: Fn(&mut EvalContext, &RpnFnCallExtra, &Option<Input>) -> Result<Option<Ret>>,
     {
         let mut ctx = EvalContext::default();
         let implicit_args = [ScalarValue::Int(Some(1))];
@@ -1306,8 +1306,8 @@ mod tests {
     }
 
     fn test_none_with_ctx<F, Input, Ret>(func: F)
-    where
-        F: Fn(&mut EvalContext, &Option<Input>) -> Result<Option<Ret>>,
+        where
+            F: Fn(&mut EvalContext, &Option<Input>) -> Result<Option<Ret>>,
     {
         let mut ctx = EvalContext::default();
         let r = func(&mut ctx, &None).unwrap();
@@ -1315,8 +1315,8 @@ mod tests {
     }
 
     fn test_none_with_extra<F, Input, Ret>(func: F)
-    where
-        F: Fn(&RpnFnCallExtra, &Option<Input>) -> Result<Option<Ret>>,
+        where
+            F: Fn(&RpnFnCallExtra, &Option<Input>) -> Result<Option<Ret>>,
     {
         let implicit_args = [ScalarValue::Int(Some(1))];
         let ret_field_type: FieldType = FieldType::default();
@@ -1329,8 +1329,8 @@ mod tests {
     }
 
     fn test_none_with_nothing<F, Input, Ret>(func: F)
-    where
-        F: Fn(&Option<Input>) -> Result<Option<Ret>>,
+        where
+            F: Fn(&Option<Input>) -> Result<Option<Ret>>,
     {
         let r = func(&None).unwrap();
         assert!(r.is_none());
@@ -3598,110 +3598,110 @@ mod tests {
                 mut overflow_as_warning,
                 mut truncate_as_warning,
             ) in cs.clone()
-            {
-                let (origin_flen, origin_decimal) = base_res.prec_and_frac();
+                {
+                    let (origin_flen, origin_decimal) = base_res.prec_and_frac();
 
-                // some test case in `cs` is just for unsigned result or signed result,
-                // some is just for negative/positive base_res
-                //
-                // in the test case above, we have negative and positive for every test case,
-                // so if the sign is different from base_res's sign, we can skip it.
-                if is_res_unsigned != is_unsigned {
-                    continue;
-                }
-                let base_res = match sign {
-                    Sign::Positive => {
-                        if base_res.is_negative() {
-                            continue;
-                        } else {
-                            base_res.clone()
+                    // some test case in `cs` is just for unsigned result or signed result,
+                    // some is just for negative/positive base_res
+                    //
+                    // in the test case above, we have negative and positive for every test case,
+                    // so if the sign is different from base_res's sign, we can skip it.
+                    if is_res_unsigned != is_unsigned {
+                        continue;
+                    }
+                    let base_res = match sign {
+                        Sign::Positive => {
+                            if base_res.is_negative() {
+                                continue;
+                            } else {
+                                base_res.clone()
+                            }
                         }
-                    }
-                    Sign::Negative => {
-                        if base_res.is_negative() {
-                            base_res.clone()
-                        } else {
-                            continue;
+                        Sign::Negative => {
+                            if base_res.is_negative() {
+                                base_res.clone()
+                            } else {
+                                continue;
+                            }
                         }
-                    }
-                };
+                    };
 
-                let (res_flen, res_decimal) = match cond {
-                    Cond::TargetIntPartLenLessThanOriginIntPartLen => {
-                        if origin_flen - origin_decimal == 0 || origin_flen <= 1 {
-                            continue;
+                    let (res_flen, res_decimal) = match cond {
+                        Cond::TargetIntPartLenLessThanOriginIntPartLen => {
+                            if origin_flen - origin_decimal == 0 || origin_flen <= 1 {
+                                continue;
+                            }
+                            (origin_flen - 1, origin_decimal)
                         }
-                        (origin_flen - 1, origin_decimal)
-                    }
-                    Cond::TargetDecimalBiggerThanOriginDecimal => {
-                        (origin_flen + 1, origin_decimal + 1)
-                    }
-                    Cond::TargetDecimalLessThanOriginDecimal => {
-                        if origin_decimal == 0 || origin_flen <= 1 {
-                            continue;
+                        Cond::TargetDecimalBiggerThanOriginDecimal => {
+                            (origin_flen + 1, origin_decimal + 1)
                         }
-                        // TODO: if add test case for Decimal::round failure,
-                        //  then should check whether this setting is right.
-                        let res = base_res
-                            .clone()
-                            .round((origin_decimal - 1) as i8, RoundMode::HalfEven);
-                        if res.is_zero() {
-                            truncate_as_warning = false;
-                            overflow_as_warning = false;
-                            warning_err_code = None;
+                        Cond::TargetDecimalLessThanOriginDecimal => {
+                            if origin_decimal == 0 || origin_flen <= 1 {
+                                continue;
+                            }
+                            // TODO: if add test case for Decimal::round failure,
+                            //  then should check whether this setting is right.
+                            let res = base_res
+                                .clone()
+                                .round((origin_decimal - 1) as i8, RoundMode::HalfEven);
+                            if res.is_zero() {
+                                truncate_as_warning = false;
+                                overflow_as_warning = false;
+                                warning_err_code = None;
+                            }
+
+                            (origin_flen - 1, origin_decimal - 1)
                         }
-
-                        (origin_flen - 1, origin_decimal - 1)
-                    }
-                };
-                let expect = match res_type {
-                    ResType::Zero => Decimal::zero(),
-                    ResType::Same => base_res.clone(),
-                    ResType::TruncateToMax => max_decimal(res_flen as u8, res_decimal as u8),
-                    ResType::TruncateToMin => {
-                        max_or_min_dec(true, res_flen as u8, res_decimal as u8)
-                    }
-                    ResType::Round => {
-                        let r = base_res
-                            .clone()
-                            .round(res_decimal as i8, RoundMode::HalfEven)
-                            .unwrap();
-                        if r == base_res {
-                            overflow_as_warning = false;
-                            truncate_as_warning = false;
-                            warning_err_code = None;
+                    };
+                    let expect = match res_type {
+                        ResType::Zero => Decimal::zero(),
+                        ResType::Same => base_res.clone(),
+                        ResType::TruncateToMax => max_decimal(res_flen as u8, res_decimal as u8),
+                        ResType::TruncateToMin => {
+                            max_or_min_dec(true, res_flen as u8, res_decimal as u8)
                         }
-                        r
-                    }
-                };
+                        ResType::Round => {
+                            let r = base_res
+                                .clone()
+                                .round(res_decimal as i8, RoundMode::HalfEven)
+                                .unwrap();
+                            if r == base_res {
+                                overflow_as_warning = false;
+                                truncate_as_warning = false;
+                                warning_err_code = None;
+                            }
+                            r
+                        }
+                    };
 
-                let ctx_in_dml_flag = vec![Flag::IN_INSERT_STMT, Flag::IN_UPDATE_OR_DELETE_STMT];
-                for in_dml_flag in ctx_in_dml_flag {
-                    let (res_flen, res_decimal) = (res_flen as isize, res_decimal as isize);
-                    let rft = make_ret_field_type_4(res_flen, res_decimal, is_unsigned);
-                    let ia = make_implicit_args(in_union);
-                    let extra = make_extra(&rft, &ia);
+                    let ctx_in_dml_flag = vec![Flag::IN_INSERT_STMT, Flag::IN_UPDATE_OR_DELETE_STMT];
+                    for in_dml_flag in ctx_in_dml_flag {
+                        let (res_flen, res_decimal) = (res_flen as isize, res_decimal as isize);
+                        let rft = make_ret_field_type_4(res_flen, res_decimal, is_unsigned);
+                        let ia = make_implicit_args(in_union);
+                        let extra = make_extra(&rft, &ia);
 
-                    let mut ctx = make_ctx_about_overflow_truncate_flags(
-                        overflow_as_warning,
-                        truncate_as_warning,
-                        vec![in_dml_flag],
-                    );
-                    let cast_func_res = cast_func(&mut ctx, &extra, &Some(input.clone()));
+                        let mut ctx = make_ctx_about_overflow_truncate_flags(
+                            overflow_as_warning,
+                            truncate_as_warning,
+                            vec![in_dml_flag],
+                        );
+                        let cast_func_res = cast_func(&mut ctx, &extra, &Some(input.clone()));
 
-                    let mut ctx = make_ctx_about_overflow_truncate_flags(
-                        overflow_as_warning,
-                        truncate_as_warning,
-                        vec![in_dml_flag],
-                    );
-                    let pd_res = produce_dec_with_specified_tp(&mut ctx, base_res.clone(), &rft);
+                        let mut ctx = make_ctx_about_overflow_truncate_flags(
+                            overflow_as_warning,
+                            truncate_as_warning,
+                            vec![in_dml_flag],
+                        );
+                        let pd_res = produce_dec_with_specified_tp(&mut ctx, base_res.clone(), &rft);
 
-                    // make log
-                    let cast_func_res_log = cast_func_res
-                        .as_ref()
-                        .map(|x| x.as_ref().map(|x| x.to_string()));
-                    let pd_res_log = pd_res.as_ref().map(|x| x.to_string());
-                    let log = format!(
+                        // make log
+                        let cast_func_res_log = cast_func_res
+                            .as_ref()
+                            .map(|x| x.as_ref().map(|x| x.to_string()));
+                        let pd_res_log = pd_res.as_ref().map(|x| x.to_string());
+                        let log = format!(
                             "test_func_name: {}, \
                          input: {}, base_res: {}, \
                          origin_flen: {}, origin_decimal: {}, \
@@ -3719,10 +3719,10 @@ mod tests {
                             expect.to_string(), pd_res_log, cast_func_res_log
                         );
 
-                    check_result(Some(&expect), &cast_func_res, log.as_str());
-                    check_warning(&ctx, warning_err_code, log.as_str());
+                        check_result(Some(&expect), &cast_func_res, log.as_str());
+                        check_warning(&ctx, warning_err_code, log.as_str());
+                    }
                 }
-            }
         }
     }
 
@@ -4092,6 +4092,20 @@ mod tests {
                     .unwrap()
                     .unwrap(),
             ),
+
+            // can not convert to decimal
+            ("abcde", false, false, Decimal::zero()),
+            ("", false, false, Decimal::zero()),
+            ("s", false, false, Decimal::zero()),
+            ("abcde", true, false, Decimal::zero()),
+            ("", true, false, Decimal::zero()),
+            ("s", true, false, Decimal::zero()),
+            ("abcde", false, true, Decimal::zero()),
+            ("", false, true, Decimal::zero()),
+            ("s", false, true, Decimal::zero()),
+            ("abcde", true, true, Decimal::zero()),
+            ("", true, true, Decimal::zero()),
+            ("s", true, true, Decimal::zero()),
         ];
 
         test_as_decimal_helper(

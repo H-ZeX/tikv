@@ -351,13 +351,7 @@ impl ScalarFunc {
             try_opt!(self.children[0].eval_decimal(ctx, row))
         } else {
             let val = try_opt!(self.children[0].eval_string(ctx, row));
-            match Decimal::from_bytes(&val)? {
-                Res::Ok(d) => Cow::Owned(d),
-                Res::Truncated(d) | Res::Overflow(d) => {
-                    ctx.handle_truncate(true)?;
-                    Cow::Owned(d)
-                }
-            }
+            val.convert(ctx)?
         };
         self.produce_dec_with_specified_tp(ctx, dec).map(Some)
     }

@@ -222,7 +222,7 @@ dependencies = [
 [[package]]
 name = "bzip2-sys"
 version = "0.1.7"
-source = "git+https://github.com/alexcrichton/bzip2-rs.git#02096d6f16e6b78cde379ce2305e08d2933e23b7"
+source = "git+https://github.com/alexcrichton/bzip2-rs.git#93c465c7a6991668ca8062f454431f65545f4d96"
 dependencies = [
  "cc",
  "libc",
@@ -1282,7 +1282,7 @@ dependencies = [
 [[package]]
 name = "kvproto"
 version = "0.0.2"
-source = "git+https://github.com/pingcap/kvproto.git#7a367e846b9f04a59a6d8cee4112de37851074dc"
+source = "git+https://github.com/pingcap/kvproto.git#199062ebc51c64d90f8241b6a51c38c1b9d052da"
 dependencies = [
  "futures",
  "grpcio",
@@ -1338,7 +1338,7 @@ dependencies = [
 [[package]]
 name = "librocksdb_sys"
 version = "0.1.0"
-source = "git+https://github.com/pingcap/rust-rocksdb.git#3cd18c44d160a3cdba586d6502d51b7cc67efc59"
+source = "git+https://github.com/pingcap/rust-rocksdb.git#4a8748c5f8dee2192236d21d2ad6394034b9b44d"
 dependencies = [
  "bzip2-sys",
  "cc",
@@ -1355,7 +1355,7 @@ dependencies = [
 [[package]]
 name = "libtitan_sys"
 version = "0.0.1"
-source = "git+https://github.com/pingcap/rust-rocksdb.git#3cd18c44d160a3cdba586d6502d51b7cc67efc59"
+source = "git+https://github.com/pingcap/rust-rocksdb.git#4a8748c5f8dee2192236d21d2ad6394034b9b44d"
 dependencies = [
  "bzip2-sys",
  "cc",
@@ -2332,7 +2332,7 @@ dependencies = [
 [[package]]
 name = "rocksdb"
 version = "0.3.0"
-source = "git+https://github.com/pingcap/rust-rocksdb.git#3cd18c44d160a3cdba586d6502d51b7cc67efc59"
+source = "git+https://github.com/pingcap/rust-rocksdb.git#4a8748c5f8dee2192236d21d2ad6394034b9b44d"
 dependencies = [
  "crc",
  "libc",
@@ -3276,9 +3276,9 @@ dependencies = [
 
 [[package]]
 name = "tokio-sync"
-version = "0.1.6"
+version = "0.1.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2162248ff317e2bc713b261f242b69dbb838b85248ed20bb21df56d60ea4cae7"
+checksum = "d06554cce1ae4a50f42fba8023918afa931413aded705b560e29600ccf7c6d76"
 dependencies = [
  "fnv",
  "futures",
@@ -3662,8 +3662,8 @@ dependencies = [
 
 [[package]]
 name = "zstd-sys"
-version = "1.4.13+zstd.1.4.3"
-source = "git+https://github.com/gyscos/zstd-rs.git#64f9263ae02ca52babfd6f5b3888fcf0c6fad413"
+version = "1.4.14+zstd.1.4.3"
+source = "git+https://github.com/gyscos/zstd-rs.git#8656e6baedb61f71abba458ecd88f363ff6458f5"
 dependencies = [
  "cc",
  "glob",

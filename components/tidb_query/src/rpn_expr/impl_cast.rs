@@ -4300,6 +4300,20 @@ mod tests {
                     .unwrap()
                     .unwrap(),
             ),
+
+            // can not convert to decimal
+            ("abcde", false, false, Decimal::zero()),
+            ("", false, false, Decimal::zero()),
+            ("s", false, false, Decimal::zero()),
+            ("abcde", true, false, Decimal::zero()),
+            ("", true, false, Decimal::zero()),
+            ("s", true, false, Decimal::zero()),
+            ("abcde", false, true, Decimal::zero()),
+            ("", false, true, Decimal::zero()),
+            ("s", false, true, Decimal::zero()),
+            ("abcde", true, true, Decimal::zero()),
+            ("", true, true, Decimal::zero()),
+            ("s", true, true, Decimal::zero()),
         ];
 
         test_as_decimal_helper(

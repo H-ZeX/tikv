@@ -350,8 +350,8 @@ impl ScalarFunc {
         let dec = if self.children[0].field_type().is_hybrid() {
             try_opt!(self.children[0].eval_decimal(ctx, row))
         } else {
-            let val = try_opt!(self.children[0].eval_string(ctx, row));
-            val.convert(ctx)?
+            let val:Cow<[u8]> = try_opt!(self.children[0].eval_string(ctx, row));
+            Cow::Owned(val.convert(ctx)?)
         };
         self.produce_dec_with_specified_tp(ctx, dec).map(Some)
     }
